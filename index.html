@@ -72,9 +72,6 @@
         const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
         let rxBuffer = '';
 
-        let lastSendTime = 0;
-        const SEND_THROTTLE_MS = 30; // Protects Bluetooth stack during rapid slider sweeps
-
         window.onload = () => {
             generateAdvancedCards();
         };
@@ -313,13 +310,9 @@
             document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`);
         }
 
+        // Direct, non-throttled Web Bluetooth transmission for instant feedback
         async function sendBluetoothCommand(cmd) {
             if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
-            
-            const now = Date.now();
-            if (now - lastSendTime < SEND_THROTTLE_MS) return;
-            lastSendTime = now;
-
             try {
                 let encoder = new TextEncoder();
                 let data = encoder.encode(cmd + '\n');
