@@ -72,6 +72,10 @@
         const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
         let rxBuffer = '';
 
+        // Async Command Queue state
+        let commandQueue = [];
+        let isTransmitting = false;
+
         window.onload = () => {
             generateAdvancedCards();
         };
@@ -310,18 +314,39 @@
             document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`);
         }
 
-        // Direct, non-throttled Web Bluetooth transmission for instant feedback
+        // Async Command Queue - Prevents GATT packet collisions
         async function sendBluetoothCommand(cmd) {
-            if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
+            if (!txCharacteristic) { 
+                console.log(`[Simulated TX] ${cmd}`); 
+                return; 
+            }
+            commandQueue.push(cmd);
+            processCommandQueue();
+        }
+
+        async function processCommandQueue() {
+            if (isTransmitting || commandQueue.length === 0) return;
+
+            isTransmitting = true;
+            const cmd = commandQueue.shift();
+
             try {
                 let encoder = new TextEncoder();
                 let data = encoder.encode(cmd + '\n');
+                
                 if (txCharacteristic.properties.writeWithoutResponse) { 
                     await txCharacteristic.writeValueWithoutResponse(data); 
                 } else { 
                     await txCharacteristic.writeValue(data); 
                 }
-            } catch (err) { console.error("TX Error:", err); }
+            } catch (err) { 
+                console.error("TX Queue Error:", err); 
+            } finally {
+                isTransmitting = false;
+                if (commandQueue.length > 0) {
+                    setTimeout(processCommandQueue, 5); 
+                }
+            }
         }
 
         async function connectBluetooth() {
@@ -341,7 +366,7 @@
                 const btn = document.getElementById("btnConnect");
                 btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
 
-                // Request initial full state sync from micro:bit
+                // Send sync handshake
                 setTimeout(() => { sendBluetoothCommand('SYNC'); }, 300);
 
                 bluetoothDevice.addEventListener('gattserverdisconnected', () => {
