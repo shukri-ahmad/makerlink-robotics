@@ -468,8 +468,7 @@
                 if(slider) { slider.value = val; document.getElementById(`val-out-${id}`).innerText = val; }
             }
         }
-
-        function syncCloud() {
+function syncCloud() {
             const payload = [];
             for (const id in toggleStates) {
                 if (toggleStates[id]) { 
@@ -491,8 +490,12 @@
                     payload.push({ id: id, type: type, mode: mode, val: val, label: label });
                 }
             }
-            db.ref('rooms/' + cloudRoomId + '/state').set(payload);
+            
+            // This is the crucial part that actually uploads to your live database!
+            db.ref('rooms/' + cloudRoomId + '/state').set(payload)
+                .catch((error) => console.error("Firebase Error:", error));
         }
+       
     </script>
 </body>
 </html>
