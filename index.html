@@ -6,6 +6,11 @@
     <title>MakerLink Robotics</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
         .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
@@ -63,6 +68,21 @@
     </div>
 
     <script>
+        // ==========================================
+        // FIREBASE CONFIGURATION
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyAMLoInCYEYyT97RtkjW6rnT0lKTu7_xik",
+            authDomain: "makerlink-b575b.firebaseapp.com",
+            databaseURL: "https://makerlink-b575b-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "makerlink-b575b",
+            storageBucket: "makerlink-b575b.firebasestorage.app",
+            messagingSenderId: "982732228897",
+            appId: "1:982732228897:web:2d01c60fa79bf6dca61660"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         let isSimActive = false, simInterval = null;
         let isCloudActive = false, cloudRoomId = null, cloudInterval = null;
         let isEditMode = false;
@@ -81,9 +101,7 @@
         let commandQueue = [];
         let isTransmitting = false;
 
-        window.onload = () => {
-            generateAdvancedCards();
-        };
+        window.onload = () => { generateAdvancedCards(); };
 
         function showMsg(msg) {
             const box = document.getElementById('msg-box');
@@ -117,7 +135,6 @@
             
             if (card) {
                 if (isShared) {
-                    // Expanded, active state
                     card.classList.remove('opacity-50', 'grayscale', 'w-fit');
                     card.classList.add('w-full', 'sm:w-[320px]');
                     if (body) body.classList.remove('hidden');
@@ -127,7 +144,6 @@
                         titleInput.classList.add(id.startsWith('M') || id.startsWith('S') ? 'w-24' : 'w-16');
                     }
                 } else {
-                    // Collapsed, greyed-out state
                     card.classList.add('opacity-50', 'grayscale', 'w-fit');
                     card.classList.remove('w-full', 'sm:w-[320px]');
                     if (body) body.classList.add('hidden');
@@ -192,7 +208,6 @@
                 btnOut.classList.replace('text-slate-500', 'bg-emerald-600'); btnOut.classList.add('text-white');
                 btnIn.classList.replace('bg-blue-600', 'text-slate-500'); btnIn.classList.remove('text-white');
                 viewIn.classList.add('hidden'); viewOut.classList.remove('hidden');
-                
                 sendBluetoothCommand(`${pin}:0`);
                 let slider = document.getElementById(`slider-${pin}`);
                 if(slider) { slider.value = 0; document.getElementById(`val-out-${pin}`).innerText = "0"; }
@@ -200,47 +215,13 @@
         }
 
         function createPinCardHTML(id, isAnalog, colorClass) {
-            let inView = '';
-            let outControls = '';
-            
+            let inView = ''; let outControls = '';
             if (isAnalog) {
-                inView = `
-                    <div id="view-in-${id}" class="flex flex-col items-center w-full gap-2 transition-all">
-                        <div class="flex items-baseline justify-center gap-2">
-                            <div id="val-${id}" class="text-3xl font-mono ${colorClass} font-bold">0</div>
-                        </div>
-                        <div class="w-full h-24 bg-slate-900 rounded-lg p-1 border border-slate-700"><canvas id="chart-${id}"></canvas></div>
-                        <div class="flex gap-2 w-full mt-1">
-                            <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Min</label><input type="number" id="ymin-${id}" value="0" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div>
-                            <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Max</label><input type="number" id="ymax-${id}" value="1023" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div>
-                            <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">X Pts</label><input type="number" id="xmax-${id}" value="20" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div>
-                        </div>
-                    </div>
-                `;
-                outControls = `
-                    <div class="w-full flex flex-col items-center mt-2">
-                        <div id="val-out-${id}" class="text-3xl font-mono ${colorClass} font-bold mb-4">0</div>
-                        <input type="range" id="slider-${id}" min="0" max="1023" value="0" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full">
-                        <div class="flex justify-between w-full text-xs text-slate-500 mt-2 font-mono"><span>0 (0V)</span><span>1023 (3V)</span></div>
-                    </div>
-                `;
+                inView = `<div id="view-in-${id}" class="flex flex-col items-center w-full gap-2 transition-all"><div class="flex items-baseline justify-center gap-2"><div id="val-${id}" class="text-3xl font-mono ${colorClass} font-bold">0</div></div><div class="w-full h-24 bg-slate-900 rounded-lg p-1 border border-slate-700"><canvas id="chart-${id}"></canvas></div><div class="flex gap-2 w-full mt-1"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Min</label><input type="number" id="ymin-${id}" value="0" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Max</label><input type="number" id="ymax-${id}" value="1023" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">X Pts</label><input type="number" id="xmax-${id}" value="20" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div></div></div>`;
+                outControls = `<div class="w-full flex flex-col items-center mt-2"><div id="val-out-${id}" class="text-3xl font-mono ${colorClass} font-bold mb-4">0</div><input type="range" id="slider-${id}" min="0" max="1023" value="0" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full"><div class="flex justify-between w-full text-xs text-slate-500 mt-2 font-mono"><span>0 (0V)</span><span>1023 (3V)</span></div></div>`;
             } else {
-                inView = `
-                    <div id="view-in-${id}" class="flex flex-col items-center justify-center w-full min-h-[70px] transition-all">
-                        <div class="flex items-center gap-4">
-                            <div class="text-[10px] font-bold text-slate-500 tracking-[0.1em] uppercase">State</div>
-                            <div id="val-${id}" class="text-4xl font-mono text-slate-500 font-bold drop-shadow-lg transition-colors duration-200">0</div>
-                        </div>
-                    </div>
-                `;
-                outControls = `
-                    <div class="w-full h-full flex flex-col justify-center min-h-[70px]">
-                        <div class="flex justify-between gap-2 mt-1">
-                            <button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 font-bold text-sm border border-slate-600 shadow-inner active:bg-slate-500 transition-all">LOW</button>
-                            <button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-bold text-sm border border-emerald-500 shadow-lg active:bg-emerald-400 transition-all">HIGH</button>
-                        </div>
-                    </div>
-                `;
+                inView = `<div id="view-in-${id}" class="flex flex-col items-center justify-center w-full min-h-[70px] transition-all"><div class="flex items-center gap-4"><div class="text-[10px] font-bold text-slate-500 tracking-[0.1em] uppercase">State</div><div id="val-${id}" class="text-4xl font-mono text-slate-500 font-bold drop-shadow-lg transition-colors duration-200">0</div></div></div>`;
+                outControls = `<div class="w-full h-full flex flex-col justify-center min-h-[70px]"><div class="flex justify-between gap-2 mt-1"><button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 font-bold text-sm border border-slate-600 shadow-inner active:bg-slate-500 transition-all">LOW</button><button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-bold text-sm border border-emerald-500 shadow-lg active:bg-emerald-400 transition-all">HIGH</button></div></div>`;
             }
 
             return `
@@ -256,12 +237,7 @@
                         </div>
                         <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-xs text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-16 text-right placeholder-slate-500" placeholder="Label...">
                     </div>
-                    <div id="body-${id}" class="p-3 flex-1 flex flex-col justify-center bg-slate-800">
-                        ${inView}
-                        <div id="view-out-${id}" class="hidden flex flex-col items-center justify-center w-full h-full transition-all">
-                            ${outControls}
-                        </div>
-                    </div>
+                    <div id="body-${id}" class="p-3 flex-1 flex flex-col justify-center bg-slate-800">${inView}<div id="view-out-${id}" class="hidden flex flex-col items-center justify-center w-full h-full transition-all">${outControls}</div></div>
                 </div>
             `;
         }
@@ -270,10 +246,7 @@
             return `
                 <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50 w-full sm:w-[320px] shrink-0" data-card="${id}">
                     <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center whitespace-nowrap">
-                        <div class="flex items-center">
-                            ${createShareToggleHTML(id)}
-                            <span class="font-bold text-sm text-orange-400 ml-1">${id}</span>
-                        </div>
+                        <div class="flex items-center">${createShareToggleHTML(id)}<span class="font-bold text-sm text-orange-400 ml-1">${id}</span></div>
                         <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
                     </div>
                     <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
@@ -284,9 +257,9 @@
                                 <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPEED</label><input type="number" id="cw-spd-${id}" min="0" max="255" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 focus:outline-none focus:border-orange-500 shadow-inner"></div>
                             </div>
                             <div class="flex gap-2 w-full">
-                                <div onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-ccw-lbl-${id}" value="⏪ CCW" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-yellow-800/50 rounded px-1"></div>
-                                <div onclick="if(!isEditMode) setMotor('${id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-red-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-stop-lbl-${id}" value="⏹️ STOP" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-red-800/50 rounded px-1"></div>
-                                <div onclick="if(!isEditMode) setMotor('${id}', 'cw')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-green-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-cw-lbl-${id}" value="CW ⏩" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-green-800/50 rounded px-1"></div>
+                                <div onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="⏪ CCW" readonly class="bg-transparent text-center w-full outline-none"></div>
+                                <div onclick="if(!isEditMode) setMotor('${id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-red-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="⏹️ STOP" readonly class="bg-transparent text-center w-full outline-none"></div>
+                                <div onclick="if(!isEditMode) setMotor('${id}', 'cw')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-green-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="CW ⏩" readonly class="bg-transparent text-center w-full outline-none"></div>
                             </div>
                         </div>
                     </div>
@@ -298,10 +271,7 @@
             return `
                 <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50 w-full sm:w-[320px] shrink-0" data-card="${id}">
                     <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center whitespace-nowrap">
-                        <div class="flex items-center">
-                            ${createShareToggleHTML(id)}
-                            <span class="font-bold text-sm text-blue-400 ml-1">${id}</span>
-                        </div>
+                        <div class="flex items-center">${createShareToggleHTML(id)}<span class="font-bold text-sm text-blue-400 ml-1">${id}</span></div>
                         <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
                     </div>
                     <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
@@ -312,11 +282,11 @@
                             <div class="flex gap-2 w-full mt-4">
                                 <div class="flex-1 flex flex-col gap-1">
                                     <input type="number" id="pos1-val-${id}" min="0" max="180" value="0" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
-                                    <div onclick="if(!isEditMode) setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos1-lbl-${id}" value="Pos 1" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
+                                    <div onclick="if(!isEditMode) setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="Pos 1" readonly class="bg-transparent text-center w-full outline-none"></div>
                                 </div>
                                 <div class="flex-1 flex flex-col gap-1">
                                     <input type="number" id="pos2-val-${id}" min="0" max="180" value="180" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
-                                    <div onclick="if(!isEditMode) setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos2-lbl-${id}" value="Pos 2" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
+                                    <div onclick="if(!isEditMode) setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="Pos 2" readonly class="bg-transparent text-center w-full outline-none"></div>
                                 </div>
                             </div>
                         </div>
@@ -328,8 +298,7 @@
         function initSensorChart(id) {
             const ctx = document.getElementById(`chart-${id}`).getContext('2d');
             sensorCharts[id] = new Chart(ctx, {
-                type: 'line',
-                data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] },
+                type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] },
                 options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { min: 0, max: 1023, border: {display: false}, grid: {color: '#334155', drawBorder: false} } } }
             });
         }
@@ -343,8 +312,7 @@
         
         function pushSensorData(id, val) {
             if(!sensorCharts[id]) return;
-            const chart = sensorCharts[id];
-            const maxPts = maxDataPoints[id] || 20;
+            const chart = sensorCharts[id]; const maxPts = maxDataPoints[id] || 20;
             chart.data.labels.push(''); chart.data.datasets[0].data.push(val);
             if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
             chart.update();
@@ -368,37 +336,19 @@
         }
 
         async function sendBluetoothCommand(cmd) {
-            if (!txCharacteristic) { 
-                console.log(`[Simulated TX] ${cmd}`); 
-                return; 
-            }
-            commandQueue.push(cmd);
-            processCommandQueue();
+            if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
+            commandQueue.push(cmd); processCommandQueue();
         }
 
         async function processCommandQueue() {
             if (isTransmitting || commandQueue.length === 0) return;
-
-            isTransmitting = true;
-            const cmd = commandQueue.shift();
-
+            isTransmitting = true; const cmd = commandQueue.shift();
             try {
-                let encoder = new TextEncoder();
-                let data = encoder.encode(cmd + '\n');
-                
-                if (txCharacteristic.properties.writeWithoutResponse) { 
-                    await txCharacteristic.writeValueWithoutResponse(data); 
-                } else { 
-                    await txCharacteristic.writeValue(data); 
-                }
-            } catch (err) { 
-                console.error("TX Queue Error:", err); 
-            } finally {
-                isTransmitting = false;
-                if (commandQueue.length > 0) {
-                    setTimeout(processCommandQueue, 10); 
-                }
-            }
+                let data = new TextEncoder().encode(cmd + '\n');
+                if (txCharacteristic.properties.writeWithoutResponse) { await txCharacteristic.writeValueWithoutResponse(data); } 
+                else { await txCharacteristic.writeValue(data); }
+            } catch (err) { console.error("TX Queue Error:", err); } 
+            finally { isTransmitting = false; if (commandQueue.length > 0) { setTimeout(processCommandQueue, 10); } }
         }
 
         async function connectBluetooth() {
@@ -430,18 +380,13 @@
 
         function handleIncomingData(event) {
             let value = new TextDecoder().decode(event.target.value);
-            rxBuffer += value;
-            let lines = rxBuffer.split('\n');
+            rxBuffer += value; let lines = rxBuffer.split('\n');
             if(lines.length > 1) { parseTelemetry(lines[0].trim()); rxBuffer = lines.slice(1).join('\n'); }
         }
 
         function parseTelemetry(str) {
-            const pairs = str.split(',');
-            const data = {};
-            pairs.forEach(p => {
-                let kv = p.split(':');
-                if(kv.length === 2) { data[kv[0]] = parseFloat(kv[1]); }
-            });
+            const pairs = str.split(','); const data = {};
+            pairs.forEach(p => { let kv = p.split(':'); if(kv.length === 2) { data[kv[0]] = parseFloat(kv[1]); } });
 
             ['P0', 'P1', 'P2'].forEach(pin => {
                 if(data[pin] !== undefined) {
@@ -476,47 +421,66 @@
         }
 
         function runSim() {
-            tick += 0.5;
-            let extData = "";
+            tick += 0.5; let extData = "";
             ['P0', 'P1', 'P2'].forEach((pin, i) => { extData += `${pin}:${Math.round(500 + Math.sin(tick + i)*400)},`; });
             ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach((pin) => { extData += `${pin}:${Math.random() > 0.5 ? 1 : 0},`; });
             parseTelemetry(extData);
         }
 
         // ==========================================
-        // Cloud Sync Logic for Public View (Guest)
+        // Live Firebase Sync
         // ==========================================
         function toggleCloud() {
             isCloudActive = !isCloudActive; const btn = document.getElementById('btn-cloud');
             if (isCloudActive) {
                 cloudRoomId = Math.floor(1000 + Math.random() * 9000);
-                btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
-                cloudInterval = setInterval(syncCloud, 1000); // Sync every 1 second
+                btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; 
+                btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
+                
+                db.ref('rooms/' + cloudRoomId + '/command').remove();
+                
+                db.ref('rooms/' + cloudRoomId + '/command').on('value', (snap) => {
+                    const data = snap.val();
+                    if(data && data.cmd) {
+                        sendBluetoothCommand(data.cmd);
+                        updateHostUIFromCommand(data.cmd);
+                    }
+                });
+
+                cloudInterval = setInterval(syncCloud, 400); 
             } else {
                 btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 clearInterval(cloudInterval);
+                if(cloudRoomId) {
+                    db.ref('rooms/' + cloudRoomId).remove();
+                    db.ref('rooms/' + cloudRoomId + '/command').off();
+                }
+            }
+        }
+
+        function updateHostUIFromCommand(cmdString) {
+            const parts = cmdString.split(":");
+            if(parts.length < 2) return;
+            const id = parts[0]; const val = parseInt(parts[1]);
+            
+            if(id.startsWith('S') || (id.startsWith('P') && id <= 'P2')) {
+                const slider = document.getElementById(`slider-${id}`);
+                if(slider) { slider.value = val; document.getElementById(`val-out-${id}`).innerText = val; }
             }
         }
 
         function syncCloud() {
             const payload = [];
-            
             for (const id in toggleStates) {
-                if (toggleStates[id]) { // Only package cards that are currently active/shared
+                if (toggleStates[id]) { 
                     let type = '';
-                    if (id.startsWith('P')) {
-                        const pinNum = parseInt(id.substring(1));
-                        type = (pinNum <= 2) ? 'analog' : 'digital';
-                    } else if (id.startsWith('M')) {
-                        type = 'motor';
-                    } else if (id.startsWith('S')) {
-                        type = 'servo';
-                    }
+                    if (id.startsWith('P')) { const pinNum = parseInt(id.substring(1)); type = (pinNum <= 2) ? 'analog' : 'digital'; } 
+                    else if (id.startsWith('M')) { type = 'motor'; } 
+                    else if (id.startsWith('S')) { type = 'servo'; }
 
                     let mode = null;
                     if (type === 'analog' || type === 'digital') {
                         const viewIn = document.getElementById(`view-in-${id}`);
-                        // If the 'IN' view is hidden, the pin is currently in 'OUT' mode
                         mode = (viewIn && viewIn.classList.contains('hidden')) ? 'OUT' : 'IN';
                     }
 
@@ -524,18 +488,10 @@
                     const label = titleInput ? titleInput.value : id;
                     const val = advancedData[id] !== undefined ? advancedData[id] : 0;
 
-                    payload.push({
-                        id: id,
-                        type: type,
-                        mode: mode,
-                        val: val,
-                        label: label
-                    });
+                    payload.push({ id: id, type: type, mode: mode, val: val, label: label });
                 }
             }
-
-            // In a real backend, you would send this payload over WebSockets/Firebase using cloudRoomId
-            console.log(`[Cloud TX to Room ${cloudRoomId}]`, JSON.stringify(payload));
+            db.ref('rooms/' + cloudRoomId + '/state').set(payload);
         }
     </script>
 </body>
