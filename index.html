@@ -16,9 +16,12 @@
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #38bdf8; cursor: pointer; margin-top: -6px; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: #334155; border-radius: 4px; }
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        
         body.is-editing .ui-editable { border-bottom: 1px dashed #facc15; border-radius: 0; transition: border 0.2s; cursor: text !important; }
         body:not(.is-editing) .ui-editable { border-bottom: 1px solid transparent; }
         body:not(.is-editing) .ui-editable-btn { pointer-events: none; }
+        body:not(.is-editing) .share-toggle-container { pointer-events: none; opacity: 0.3; filter: grayscale(100%); transition: all 0.3s; }
+        
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
     </style>
 </head>
@@ -61,8 +64,9 @@
         let isSimActive = false, simInterval = null;
         let isCloudActive = false, cloudRoomId = null, cloudInterval = null;
         let isEditMode = false;
+        
         const advancedData = {};
-        const toggleStates = {};
+        const toggleStates = {}; // Tracks which cards are shared to the public view
         const sensorCharts = {};
         const maxDataPoints = {};
 
@@ -100,6 +104,15 @@
                 btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 document.querySelectorAll('.ui-editable').forEach(el => el.setAttribute('readonly', true));
             }
+        }
+
+        function createShareToggleHTML(id) {
+            return `
+                <label class="share-toggle-container relative inline-flex items-center cursor-pointer mr-2" title="Share ${id} to Public View">
+                    <input type="checkbox" id="share-${id}" onchange="toggleStates['${id}'] = this.checked" class="sr-only peer" checked>
+                    <div class="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
+                </label>
+            `;
         }
 
         function generateAdvancedCards() {
@@ -146,7 +159,6 @@
                 btnIn.classList.replace('bg-blue-600', 'text-slate-500'); btnIn.classList.remove('text-white');
                 viewIn.classList.add('hidden'); viewOut.classList.remove('hidden');
                 
-                // Immediately switch pin to output mode on hardware!
                 sendBluetoothCommand(`${pin}:0`);
                 let slider = document.getElementById(`slider-${pin}`);
                 if(slider) { slider.value = 0; document.getElementById(`val-out-${pin}`).innerText = "0"; }
@@ -198,11 +210,12 @@
             }
 
             return `
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50">
+                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50" data-card="${id}">
                     <div class="p-2 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center">
+                            ${createShareToggleHTML(id)}
                             <span class="font-bold text-sm ${colorClass} ml-1">${id}</span>
-                            <div class="flex bg-slate-800 rounded border border-slate-700 p-[2px] ml-1 cursor-pointer">
+                            <div class="flex bg-slate-800 rounded border border-slate-700 p-[2px] ml-2 cursor-pointer">
                                 <button id="btn-in-${id}" onclick="setPinMode('${id}', 'IN')" class="px-1.5 py-0.5 text-[9px] rounded bg-blue-600 text-white font-bold transition-colors">IN</button>
                                 <button id="btn-out-${id}" onclick="setPinMode('${id}', 'OUT')" class="px-1.5 py-0.5 text-[9px] rounded text-slate-500 font-bold transition-colors">OUT</button>
                             </div>
@@ -221,9 +234,12 @@
 
         function createMotorCardHTML(id) {
             return `
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50">
+                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50" data-card="${id}">
                     <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
-                        <span class="font-bold text-sm text-orange-400 ml-1">${id}</span>
+                        <div class="flex items-center">
+                            ${createShareToggleHTML(id)}
+                            <span class="font-bold text-sm text-orange-400 ml-1">${id}</span>
+                        </div>
                         <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
                     </div>
                     <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
@@ -246,9 +262,12 @@
 
         function createServoCardHTML(id) {
             return `
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50">
+                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50" data-card="${id}">
                     <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
-                        <span class="font-bold text-sm text-blue-400 ml-1">${id}</span>
+                        <div class="flex items-center">
+                            ${createShareToggleHTML(id)}
+                            <span class="font-bold text-sm text-blue-400 ml-1">${id}</span>
+                        </div>
                         <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
                     </div>
                     <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
@@ -422,7 +441,9 @@
         }
 
         function syncCloud() {
+            // Placeholder: The next step will use the 'toggleStates' object to build the payload
             console.log(`Syncing robotics data to room ${cloudRoomId}...`);
+            console.log("Currently shared cards:", Object.keys(toggleStates).filter(k => toggleStates[k]));
         }
 
         let tick = 0;
