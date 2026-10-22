@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MakerLink Robotics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #22c55e; }
+        .toggle-checkbox { right: 0; z-index: 1; border-color: #e2e8f0; transition: all 0.3s; }
+        .toggle-label { width: 3rem; height: 1.5rem; background-color: #64748b; border-radius: 9999px; transition: all 0.3s; }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #38bdf8; cursor: pointer; margin-top: -6px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: #334155; border-radius: 4px; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        body.is-editing .ui-editable { border-bottom: 1px dashed #facc15; border-radius: 0; transition: border 0.2s; cursor: text !important; }
+        body:not(.is-editing) .ui-editable { border-bottom: 1px solid transparent; }
+        body:not(.is-editing) .ui-editable-btn { pointer-events: none; }
+        #msg-box { transition: opacity 0.3s, transform 0.3s; }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden">
+
+    <div id="msg-box" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-xl shadow-2xl z-50 opacity-0 pointer-events-none font-bold text-center border-2 border-red-400">Message</div>
+
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 mb-6 gap-4 md:gap-0 shrink-0">
+        <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">MakerLink Robotics</h1>
+        <div class="flex flex-wrap gap-3 justify-center">
+            <button id="btnConnect" onclick="connectBluetooth()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-lg">🔌 Connect</button>
+            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">🔒 Lock UI</button>
+            <button id="btn-cloud" onclick="toggleCloud()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">☁️ Go Public</button>
+            <button id="btn-sim" onclick="toggleSim()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg">🧪 Sim Mode</button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div id="content-adv" class="flex flex-col gap-8 flex-1">
+        <div>
+            <h3 class="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">🔌 ANALOG PINS (P0-P2)</h3>
+            <div id="grid-analog" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+        </div>
+        <div>
+            <h3 class="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">🔌 DIGITAL PINS (P9-P16)</h3>
+            <div id="grid-digital" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"></div>
+        </div>
+        <div>
+            <h3 class="text-xl font-bold text-orange-400 mb-4 flex items-center gap-2">⚙️ DC MOTORS (M1-M4)</h3>
+            <div id="grid-motors" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+        </div>
+        <div>
+            <h3 class="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">🦾 SERVOS (S1-S8)</h3>
+            <div id="grid-servos" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+        </div>
+    </div>
+
+    <script>
+        let isSimActive = false, simInterval = null;
+        let isCloudActive = false, cloudRoomId = null, cloudInterval = null;
+        let isEditMode = false;
+        const advancedData = {};
+        const toggleStates = {};
+        const sensorCharts = {};
+        const maxDataPoints = {};
+
+        let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
+        const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+        const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+        const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+        let rxBuffer = '';
+
+        window.onload = () => {
+            generateAdvancedCards();
+        };
+
+        function showMsg(msg) {
+            const box = document.getElementById('msg-box');
+            box.innerText = msg;
+            box.classList.remove('opacity-0', 'pointer-events-none'); box.classList.add('opacity-100');
+            setTimeout(() => { box.classList.remove('opacity-100'); box.classList.add('opacity-0', 'pointer-events-none'); }, 4000);
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('btn-edit');
+            if (isEditMode) {
+                document.body.classList.add('is-editing');
+                btn.innerHTML = "🔓 Editing UI";
+                btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
+                document.querySelectorAll('.ui-editable').forEach(el => el.removeAttribute('readonly'));
+            } else {
+                document.body.classList.remove('is-editing');
+                btn.innerHTML = "🔒 Lock UI";
+                btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
+                document.querySelectorAll('.ui-editable').forEach(el => el.setAttribute('readonly', true));
+            }
+        }
+
+        function generateAdvancedCards() {
+            const gridAnalog = document.getElementById('grid-analog');
+            const gridDigital = document.getElementById('grid-digital');
+            
+            ['P0', 'P1', 'P2'].forEach(pin => {
+                gridAnalog.innerHTML += createPinCardHTML(pin, true, 'text-purple-400');
+                advancedData[pin] = 0; toggleStates[pin] = true; maxDataPoints[pin] = 20;
+            });
+            ['P0', 'P1', 'P2'].forEach(pin => initSensorChart(pin));
+
+            ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach(pin => {
+                gridDigital.innerHTML += createPinCardHTML(pin, false, 'text-emerald-400');
+                advancedData[pin] = 0; toggleStates[pin] = true; maxDataPoints[pin] = 20;
+            });
+
+            const gridMotors = document.getElementById('grid-motors');
+            for(let i=1; i<=4; i++) {
+                gridMotors.innerHTML += createMotorCardHTML(`M${i}`);
+                advancedData[`M${i}`] = 0; toggleStates[`M${i}`] = true;
+            }
+
+            const gridServos = document.getElementById('grid-servos');
+            for(let i=1; i<=8; i++) {
+                gridServos.innerHTML += createServoCardHTML(`S${i}`);
+                advancedData[`S${i}`] = 90; toggleStates[`S${i}`] = true;
+            }
+        }
+
+        function setPinMode(pin, mode) {
+            const btnIn = document.getElementById(`btn-in-${pin}`);
+            const btnOut = document.getElementById(`btn-out-${pin}`);
+            const viewIn = document.getElementById(`view-in-${pin}`);
+            const viewOut = document.getElementById(`view-out-${pin}`);
+
+            if (mode === 'IN') {
+                btnIn.classList.replace('text-slate-500', 'bg-blue-600'); btnIn.classList.add('text-white');
+                btnOut.classList.replace('bg-emerald-600', 'text-slate-500'); btnOut.classList.remove('text-white');
+                viewIn.classList.remove('hidden'); viewOut.classList.add('hidden');
+                sendBluetoothCommand(`${pin}:IN`);
+            } else {
+                btnOut.classList.replace('text-slate-500', 'bg-emerald-600'); btnOut.classList.add('text-white');
+                btnIn.classList.replace('bg-blue-600', 'text-slate-500'); btnIn.classList.remove('text-white');
+                viewIn.classList.add('hidden'); viewOut.classList.remove('hidden');
+                
+                sendBluetoothCommand(`${pin}:0`);
+                let slider = document.getElementById(`slider-${pin}`);
+                if(slider) { slider.value = 0; document.getElementById(`val-out-${pin}`).innerText = "0"; }
+            }
+        }
+
+        function createPinCardHTML(id, isAnalog, colorClass) {
+            let inView = '';
+            let outControls = '';
+            
+            if (isAnalog) {
+                inView = `
+                    <div id="view-in-${id}" class="flex flex-col items-center w-full gap-2 transition-all">
+                        <div class="flex items-baseline justify-center gap-2">
+                            <div id="val-${id}" class="text-3xl font-mono ${colorClass} font-bold">0</div>
+                        </div>
+                        <div class="w-full h-24 bg-slate-900 rounded-lg p-1 border border-slate-700"><canvas id="chart-${id}"></canvas></div>
+                        <div class="flex gap-2 w-full mt-1">
+                            <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Min</label><input type="number" id="ymin-${id}" value="0" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div>
+                            <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Max</label><input type="number" id="ymax-${id}" value="1023" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div>
+                            <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">X Pts</label><input type="number" id="xmax-${id}" value="20" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div>
+                        </div>
+                    </div>
+                `;
+                outControls = `
+                    <div class="w-full flex flex-col items-center mt-2">
+                        <div id="val-out-${id}" class="text-3xl font-mono ${colorClass} font-bold mb-4">0</div>
+                        <input type="range" id="slider-${id}" min="0" max="1023" value="0" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full">
+                        <div class="flex justify-between w-full text-xs text-slate-500 mt-2 font-mono"><span>0 (0V)</span><span>1023 (3V)</span></div>
+                    </div>
+                `;
+            } else {
+                inView = `
+                    <div id="view-in-${id}" class="flex flex-col items-center justify-center w-full min-h-[70px] transition-all">
+                        <div class="flex items-center gap-4">
+                            <div class="text-[10px] font-bold text-slate-500 tracking-[0.1em] uppercase">State</div>
+                            <div id="val-${id}" class="text-4xl font-mono text-slate-500 font-bold drop-shadow-lg transition-colors duration-200">0</div>
+                        </div>
+                    </div>
+                `;
+                outControls = `
+                    <div class="w-full h-full flex flex-col justify-center min-h-[70px]">
+                        <div class="flex justify-between gap-2 mt-1">
+                            <button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 font-bold text-sm border border-slate-600 shadow-inner active:bg-slate-500 transition-all">LOW</button>
+                            <button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-bold text-sm border border-emerald-500 shadow-lg active:bg-emerald-400 transition-all">HIGH</button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50">
+                    <div class="p-2 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
+                        <div class="flex items-center gap-1">
+                            <span class="font-bold text-sm ${colorClass} ml-1">${id}</span>
+                            <div class="flex bg-slate-800 rounded border border-slate-700 p-[2px] ml-1 cursor-pointer">
+                                <button id="btn-in-${id}" onclick="setPinMode('${id}', 'IN')" class="px-1.5 py-0.5 text-[9px] rounded bg-blue-600 text-white font-bold transition-colors">IN</button>
+                                <button id="btn-out-${id}" onclick="setPinMode('${id}', 'OUT')" class="px-1.5 py-0.5 text-[9px] rounded text-slate-500 font-bold transition-colors">OUT</button>
+                            </div>
+                        </div>
+                        <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-xs text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-16 text-right placeholder-slate-500" placeholder="Label...">
+                    </div>
+                    <div id="body-${id}" class="p-3 flex-1 flex flex-col justify-center bg-slate-800">
+                        ${inView}
+                        <div id="view-out-${id}" class="hidden flex flex-col items-center justify-center w-full h-full transition-all">
+                            ${outControls}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createMotorCardHTML(id) {
+            return `
+                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50">
+                    <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
+                        <span class="font-bold text-sm text-orange-400 ml-1">${id}</span>
+                        <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
+                    </div>
+                    <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
+                        <div class="w-full flex flex-col items-center">
+                            <div id="val-${id}" class="text-lg font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
+                            <div class="flex gap-2 w-full mb-4">
+                                <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPEED</label><input type="number" id="ccw-spd-${id}" min="0" max="255" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 focus:outline-none focus:border-orange-500 shadow-inner"></div>
+                                <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPEED</label><input type="number" id="cw-spd-${id}" min="0" max="255" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 focus:outline-none focus:border-orange-500 shadow-inner"></div>
+                            </div>
+                            <div class="flex gap-2 w-full">
+                                <div onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-ccw-lbl-${id}" value="⏪ CCW" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-yellow-800/50 rounded px-1"></div>
+                                <div onclick="if(!isEditMode) setMotor('${id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-red-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-stop-lbl-${id}" value="⏹️ STOP" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-red-800/50 rounded px-1"></div>
+                                <div onclick="if(!isEditMode) setMotor('${id}', 'cw')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-green-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-cw-lbl-${id}" value="CW ⏩" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-green-800/50 rounded px-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createServoCardHTML(id) {
+            return `
+                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50">
+                    <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
+                        <span class="font-bold text-sm text-blue-400 ml-1">${id}</span>
+                        <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
+                    </div>
+                    <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
+                        <div class="w-full flex flex-col items-center">
+                            <div id="val-${id}" class="text-2xl font-mono text-blue-400 font-bold mb-4">90°</div>
+                            <input type="range" id="slider-${id}" min="0" max="180" value="90" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full">
+                            <div class="flex justify-between w-full text-xs text-slate-500 mt-2 font-mono"><span>0°</span><span>180°</span></div>
+                            <div class="flex gap-2 w-full mt-4">
+                                <div class="flex-1 flex flex-col gap-1">
+                                    <input type="number" id="pos1-val-${id}" min="0" max="180" value="0" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
+                                    <div onclick="if(!isEditMode) setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos1-lbl-${id}" value="Pos 1" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
+                                </div>
+                                <div class="flex-1 flex flex-col gap-1">
+                                    <input type="number" id="pos2-val-${id}" min="0" max="180" value="180" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
+                                    <div onclick="if(!isEditMode) setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos2-lbl-${id}" value="Pos 2" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initSensorChart(id) {
+            const ctx = document.getElementById(`chart-${id}`).getContext('2d');
+            sensorCharts[id] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] },
+                options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { min: 0, max: 1023, border: {display: false}, grid: {color: '#334155', drawBorder: false} } } }
+            });
+        }
+
+        function updateSensorChartConfig(id) {
+            const yMin = parseFloat(document.getElementById(`ymin-${id}`).value) || 0;
+            const yMax = parseFloat(document.getElementById(`ymax-${id}`).value) || 1023;
+            maxDataPoints[id] = parseInt(document.getElementById(`xmax-${id}`).value) || 20;
+            if(sensorCharts[id]) { sensorCharts[id].options.scales.y.min = yMin; sensorCharts[id].options.scales.y.max = yMax; sensorCharts[id].update(); }
+        }
+        
+        function pushSensorData(id, val) {
+            if(!sensorCharts[id]) return;
+            const chart = sensorCharts[id];
+            const maxPts = maxDataPoints[id] || 20;
+            chart.data.labels.push(''); chart.data.datasets[0].data.push(val);
+            if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+            chart.update();
+        }
+
+        function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val); }
+
+        function setServoPos(id, posNum) {
+            let val = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0;
+            if (val > 180) val = 180; if (val < 0) val = 0;
+            const slider = document.getElementById(`slider-${id}`); if (slider) slider.value = val;
+            updateVal(id, val); sendBluetoothCommand(`${id}:${val}`);
+        }
+
+        function setMotor(id, action) {
+            let val = 0;
+            if (action === 'ccw') { let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } 
+            else if (action === 'cw') { let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); }
+            let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)');
+            document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`);
+        }
+
+        async function connectBluetooth() {
+            if(isSimActive) { showMsg("Please turn off Sim Mode before connecting to real hardware."); return; }
+            if (!navigator || !navigator.bluetooth) { showMsg("Web Bluetooth API is missing! Make sure you are using Chrome or Edge, and serving via HTTPS."); return; }
+            
+            try {
+                bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] });
+                bluetoothServer = await bluetoothDevice.gatt.connect();
+                uartService = await bluetoothServer.getPrimaryService(UART_SERVICE_UUID);
+                txCharacteristic = await uartService.getCharacteristic(UART_TX_CHAR_UUID);
+                rxCharacteristic = await uartService.getCharacteristic(UART_RX_CHAR_UUID);
+
+                await rxCharacteristic.startNotifications();
+                rxCharacteristic.addEventListener('characteristicvaluechanged', handleIncomingData);
+
+                const btn = document.getElementById("btnConnect");
+                btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
+
+                bluetoothDevice.addEventListener('gattserverdisconnected', () => {
+                    const btn = document.getElementById("btnConnect");
+                    btn.innerHTML = "🔌 Connect"; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-500", "hover:bg-blue-500");
+                    showMsg("Micro:bit disconnected!");
+                });
+            } catch (error) { showMsg("Connection failed or cancelled. Check console (F12) for details."); }
+        }
+
+        function handleIncomingData(event) {
+            let value = new TextDecoder().decode(event.target.value);
+            rxBuffer += value;
+            let lines = rxBuffer.split('\n');
+            if(lines.length > 1) { parseTelemetry(lines[0].trim()); rxBuffer = lines.slice(1).join('\n'); }
+        }
+
+        function parseTelemetry(str) {
+            const pairs = str.split(',');
+            const data = {};
+            pairs.forEach(p => {
+                let kv = p.split(':');
+                if(kv.length === 2) { data[kv[0]] = parseFloat(kv[1]); }
+            });
+
+            ['P0', 'P1', 'P2'].forEach(pin => {
+                if(data[pin] !== undefined) {
+                    advancedData[pin] = data[pin]; let el = document.getElementById(`val-${pin}`);
+                    if(el && !document.getElementById(`view-in-${pin}`).classList.contains('hidden')) { el.innerText = data[pin]; pushSensorData(pin, data[pin]); }
+                }
+            });
+
+            ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach(pin => {
+                if(data[pin] !== undefined) {
+                    advancedData[pin] = data[pin]; let el = document.getElementById(`val-${pin}`);
+                    if(el && !document.getElementById(`view-in-${pin}`).classList.contains('hidden')) {
+                        el.innerText = data[pin];
+                        if (data[pin] === 1) { el.classList.replace('text-slate-500', 'text-emerald-400'); } 
+                        else { el.classList.replace('text-emerald-400', 'text-slate-500'); }
+                    }
+                }
+            });
+        }
+
+        async function sendBluetoothCommand(cmd) {
+            if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
+            try {
+                let encoder = new TextEncoder(); let data = encoder.encode(cmd + '\n');
+                if (txCharacteristic.properties.writeWithoutResponse) { await txCharacteristic.writeValueWithoutResponse(data); } 
+                else { await txCharacteristic.writeValue(data); }
+            } catch (err) { console.error("TX Error:", err); }
+        }
+
+        function toggleCloud() {
+            isCloudActive = !isCloudActive; const btn = document.getElementById('btn-cloud');
+            if (isCloudActive) {
+                cloudRoomId = Math.floor(1000 + Math.random() * 9000);
+                btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
+                cloudInterval = setInterval(syncCloud, 2000);
+            } else {
+                btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
+                clearInterval(cloudInterval);
+            }
+        }
+
+        function syncCloud() {
+            console.log(`Syncing robotics data to room ${cloudRoomId}...`);
+        }
+
+        let tick = 0;
+        function toggleSim() {
+            isSimActive = !isSimActive; const btn = document.getElementById('btn-sim');
+            if (isSimActive) {
+                if(bluetoothDevice && bluetoothDevice.gatt.connected) { bluetoothDevice.gatt.disconnect(); }
+                btn.className = "bg-green-400 text-green-950 font-bold py-2 px-4 rounded-lg transition-colors border-2 border-green-300 shadow-[0_0_15px_rgba(74,222,128,0.5)] min-w-[130px]";
+                btn.innerText = "🛑 Stop Sim"; simInterval = setInterval(runSim, 1000);
+            } else {
+                btn.className = "bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg";
+                btn.innerText = "🧪 Sim Mode"; clearInterval(simInterval);
+            }
+        }
+
+        function runSim() {
+            tick += 0.5;
+            let extData = "";
+            ['P0', 'P1', 'P2'].forEach((pin, i) => { extData += `${pin}:${Math.round(500 + Math.sin(tick + i)*400)},`; });
+            ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach((pin) => { extData += `${pin}:${Math.random() > 0.5 ? 1 : 0},`; });
+            parseTelemetry(extData);
+        }
+    </script>
+</body>
+</html>
