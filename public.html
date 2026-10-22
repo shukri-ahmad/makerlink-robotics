@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -39,9 +38,6 @@
     </div>
 
     <script>
-        // ==========================================
-        // FIREBASE CONFIGURATION
-        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyAMLoInCYEYyT97RtkjW6rnT0lKTu7_xik",
             authDomain: "makerlink-b575b.firebaseapp.com",
@@ -138,7 +134,6 @@
                                 </div>
                             </div>`;
                     } else if (card.type === 'servo') {
-                        // Removed the large 90° readout, just the two buttons now
                         bodyHTML = `
                             <div class="w-full flex flex-col items-center justify-center h-full min-h-[70px]">
                                 <div class="flex gap-2 w-full">
@@ -171,20 +166,16 @@
                         valEl.className = card.val === 1 ? 'text-4xl font-mono text-emerald-400 font-bold drop-shadow-lg' : 'text-4xl font-mono text-slate-500 font-bold';
                     }
                 } else if (card.type === 'servo') {
-                    // Update Servo Buttons Colors Dynamically
                     const btn1 = document.getElementById(`btn-pos1-${card.id}`);
                     const btn2 = document.getElementById(`btn-pos2-${card.id}`);
                     
                     if (btn1 && btn2) {
-                        // Ensure text is always up to date from Host
                         btn1.innerText = card.pos1Lbl;
                         btn2.innerText = card.pos2Lbl;
                         
-                        // Check if current angle matches the preset angle
                         const isPos1 = Number(card.val) === Number(card.pos1Val);
                         const isPos2 = Number(card.val) === Number(card.pos2Val);
 
-                        // Apply glowing blue if active, dull slate if inactive
                         btn1.className = `flex-1 text-white text-sm font-bold py-3 rounded-lg shadow-lg border transition-all ${isPos1 ? 'bg-blue-500 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-[1.02]' : 'bg-slate-700 hover:bg-slate-600 border-slate-600'}`;
                         btn2.className = `flex-1 text-white text-sm font-bold py-3 rounded-lg shadow-lg border transition-all ${isPos2 ? 'bg-blue-500 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)] scale-[1.02]' : 'bg-slate-700 hover:bg-slate-600 border-slate-600'}`;
                     }
