@@ -138,7 +138,14 @@
                                 </div>
                             </div>`;
                     } else if (card.type === 'servo') {
-                        bodyHTML = `<div class="w-full flex flex-col items-center"><div id="val-${card.id}" class="text-2xl font-mono ${colorClass} font-bold mb-4">90°</div><input type="range" min="0" max="180" value="90" oninput="document.getElementById('val-${card.id}').innerText=this.value+'°'; sendRemoteCommand('${card.id}:'+this.value);" class="w-full"></div>`;
+                        bodyHTML = `
+                            <div class="w-full flex flex-col items-center">
+                                <div id="val-${card.id}" class="text-2xl font-mono ${colorClass} font-bold mb-4">90°</div>
+                                <div class="flex gap-2 w-full mt-2">
+                                    <button onclick="sendRemoteCommand('${card.id}:${card.pos1Val}')" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-3 rounded-lg shadow-lg border border-blue-700/50 transition-colors">${card.pos1Lbl}</button>
+                                    <button onclick="sendRemoteCommand('${card.id}:${card.pos2Val}')" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-3 rounded-lg shadow-lg border border-blue-700/50 transition-colors">${card.pos2Lbl}</button>
+                                </div>
+                            </div>`;
                     }
 
                     cardEl.innerHTML = `
@@ -160,6 +167,8 @@
                     } else if (card.type === 'digital' && card.mode === 'IN') {
                         valEl.innerText = card.val;
                         valEl.className = card.val === 1 ? 'text-4xl font-mono text-emerald-400 font-bold drop-shadow-lg' : 'text-4xl font-mono text-slate-500 font-bold';
+                    } else if (card.type === 'servo') {
+                        valEl.innerText = card.val + '°';
                     }
                 }
             });
