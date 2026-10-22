@@ -23,24 +23,31 @@
 
     <div id="msg-box" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-6 py-3 rounded-xl shadow-2xl z-50 opacity-0 pointer-events-none font-bold text-center border-2 border-purple-400">Message</div>
 
-    <header class="flex flex-col sm:flex-row justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 mb-6 gap-4 shrink-0">
-        <h1 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">MakerLink Public</h1>
-        <div class="flex items-center gap-2 w-full sm:w-auto">
+    <!-- Header with Logos -->
+    <header class="flex flex-col xl:flex-row justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 mb-6 gap-6 xl:gap-0 shrink-0">
+        <div class="flex items-center gap-4">
+            <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-14 md:h-16 object-contain rounded-lg shadow-md mix-blend-screen">
+            <div class="flex flex-col justify-center">
+                <h1 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 leading-tight">MakerLink Public</h1>
+                <div class="flex items-center gap-2 text-[10px] md:text-xs text-slate-400 mt-1 font-semibold tracking-wide">
+                    <span>MADE BY</span>
+                    <img src="Logo MAKERSPACE (3)-Photoroom.jpg" alt="Makerspace UTHM" class="h-4 md:h-5 object-contain mix-blend-screen">
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-center">
             <input type="number" id="room-input" placeholder="Room ID..." class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 font-mono text-white focus:outline-none focus:border-purple-500 w-full sm:w-32 text-center text-lg">
             <button id="btn-join" onclick="joinRoom()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-lg whitespace-nowrap">📡 Join</button>
         </div>
     </header>
 
-    <!-- Structured Main Content Area -->
     <div id="public-container" class="flex flex-col gap-8 flex-1 w-full max-w-screen-2xl mx-auto">
         
-        <!-- Empty State -->
         <div id="empty-state" class="w-full text-center text-slate-500 mt-20 font-bold flex flex-col items-center gap-4">
             <span class="text-6xl">📡</span>
             <p>Enter a Room ID to connect to a live MakerLink Host.</p>
         </div>
 
-        <!-- Dynamic Sections -->
         <div id="section-analog" class="hidden flex-col">
             <h3 class="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">🔌 ANALOG PINS</h3>
             <div id="grid-analog" class="flex flex-wrap gap-4 items-start justify-center sm:justify-start"></div>
@@ -64,9 +71,6 @@
     </div>
 
     <script>
-        // ==========================================
-        // FIREBASE CONFIGURATION
-        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyAMLoInCYEYyT97RtkjW6rnT0lKTu7_xik",
             authDomain: "makerlink-b575b.firebaseapp.com",
@@ -109,7 +113,7 @@
                 if(data) {
                     renderSharedCards(data);
                 } else {
-                    renderSharedCards([]); // Clears out UI if Host drops
+                    renderSharedCards([]); 
                     document.getElementById('empty-state').innerHTML = `<span class="text-6xl">📡</span><p>Room ${roomId} is empty or closed.</p>`;
                 }
             });
@@ -137,7 +141,6 @@
                 emptyState.classList.add('hidden');
             }
 
-            // 1. Determine which sections need to be visible based on payload types
             const activeTypes = new Set(sharedCards.map(c => c.type));
             ['analog', 'digital', 'motor', 'servo'].forEach(type => {
                 const section = document.getElementById(`section-${type}`);
@@ -150,7 +153,6 @@
                 }
             });
             
-            // 2. Remove any cards that the Host un-shared
             const currentCardIds = sharedCards.map(c => `public-card-${c.id}`);
             document.querySelectorAll('[id^="public-card-"]').forEach(child => {
                 if (!currentCardIds.includes(child.id)) {
@@ -158,11 +160,9 @@
                 }
             });
 
-            // 3. Build or Update existing cards
             sharedCards.forEach(card => {
                 let cardEl = document.getElementById(`public-card-${card.id}`);
                 
-                // If it doesn't exist, create it and put it in the correct category section!
                 if (!cardEl) {
                     cardEl = document.createElement('div');
                     cardEl.id = `public-card-${card.id}`;
@@ -208,14 +208,11 @@
                         <div class="p-4 flex-1 flex flex-col justify-center bg-slate-800">${bodyHTML}</div>
                     `;
                     
-                    // Append the card to its specific category grid!
                     document.getElementById(`grid-${card.type}`).appendChild(cardEl);
 
-                    // Initialize charts immediately after appending so dimensions are correct
                     if (card.type === 'analog' && card.mode === 'IN') initChart(card.id);
                 }
 
-                // 4. Update data values dynamically
                 if (card.type === 'analog' && card.mode === 'IN') {
                     const valEl = document.getElementById(`val-${card.id}`);
                     if(valEl) { valEl.innerText = card.val; pushChartData(card.id, card.val); }
