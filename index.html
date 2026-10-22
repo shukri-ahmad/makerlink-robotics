@@ -30,20 +30,16 @@
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden">
+<body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
 
     <div id="msg-box" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-xl shadow-2xl z-50 opacity-0 pointer-events-none font-bold text-center border-2 border-red-400">Message</div>
 
-    <!-- Header with Logos -->
+    <!-- Header with Main Logo Only -->
     <header class="flex flex-col xl:flex-row justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 mb-6 gap-6 xl:gap-0 shrink-0">
         <div class="flex items-center gap-4">
             <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-14 md:h-16 object-contain rounded-lg shadow-md mix-blend-screen">
             <div class="flex flex-col justify-center">
                 <h1 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 leading-tight">MakerLink Robotics</h1>
-                <div class="flex items-center gap-2 text-[10px] md:text-xs text-slate-400 mt-1 font-semibold tracking-wide">
-                    <span>MADE BY</span>
-                    <img src="Logo MAKERSPACE (3)-Photoroom.jpg" alt="Makerspace UTHM" class="h-4 md:h-5 object-contain mix-blend-screen">
-                </div>
             </div>
         </div>
         <div class="flex flex-wrap gap-3 justify-center">
@@ -55,7 +51,7 @@
     </header>
 
     <!-- Main Content Area -->
-    <div id="content-adv" class="flex flex-col gap-8 flex-1">
+    <div id="content-adv" class="flex flex-col gap-8 flex-1 pb-20">
         <div>
             <h3 class="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">🔌 ANALOG PINS (P0-P2)</h3>
             <div id="grid-analog" class="flex flex-wrap gap-4 items-start"></div>
@@ -72,6 +68,12 @@
             <h3 class="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">🦾 SERVOS (S1-S8)</h3>
             <div id="grid-servos" class="flex flex-wrap gap-4 items-start"></div>
         </div>
+    </div>
+
+    <!-- Floating Powered By Badge -->
+    <div class="fixed bottom-4 right-4 flex flex-col items-end z-40 pointer-events-none opacity-80 drop-shadow-xl">
+        <span class="text-[10px] font-bold text-slate-400 tracking-wider mb-1">POWERED BY</span>
+        <img src="Logo MAKERSPACE (3)-Photoroom.jpg" alt="Makerspace UTHM" class="h-8 sm:h-10 object-contain mix-blend-screen">
     </div>
 
     <script>
@@ -415,13 +417,6 @@
                 btn.className = "bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg";
                 btn.innerText = "🧪 Sim Mode"; clearInterval(simInterval);
             }
-        }
-
-        function runSim() {
-            tick += 0.5; let extData = "";
-            ['P0', 'P1', 'P2'].forEach((pin, i) => { extData += `${pin}:${Math.round(500 + Math.sin(tick + i)*400)},`; });
-            ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach((pin) => { extData += `${pin}:${Math.random() > 0.5 ? 1 : 0},`; });
-            parseTelemetry(extData);
         }
 
         function toggleCloud() {
