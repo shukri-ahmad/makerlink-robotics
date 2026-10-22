@@ -20,7 +20,9 @@
         body.is-editing .ui-editable { border-bottom: 1px dashed #facc15; border-radius: 0; transition: border 0.2s; cursor: text !important; }
         body:not(.is-editing) .ui-editable { border-bottom: 1px solid transparent; }
         body:not(.is-editing) .ui-editable-btn { pointer-events: none; }
-        body:not(.is-editing) .share-toggle-container { pointer-events: none; opacity: 0.3; filter: grayscale(100%); transition: all 0.3s; }
+        
+        /* Hides and disables the share toggle during normal operation */
+        body:not(.is-editing) .share-toggle-container { pointer-events: none; opacity: 0.2; filter: grayscale(100%); transition: all 0.3s; }
         
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
     </style>
@@ -66,7 +68,7 @@
         let isEditMode = false;
         
         const advancedData = {};
-        const toggleStates = {}; // Tracks which cards are shared to the public view
+        const toggleStates = {}; 
         const sensorCharts = {};
         const maxDataPoints = {};
 
@@ -106,10 +108,28 @@
             }
         }
 
+        function toggleCardShare(id, isShared) {
+            toggleStates[id] = isShared;
+            const card = document.querySelector(`[data-card="${id}"]`);
+            const body = document.getElementById(`body-${id}`);
+            
+            if (card) {
+                if (isShared) {
+                    // Make it look alive and re-enable inputs
+                    card.classList.remove('opacity-40', 'saturate-0');
+                    if (body) body.style.pointerEvents = 'auto';
+                } else {
+                    // Grey out and disable inputs
+                    card.classList.add('opacity-40', 'saturate-0');
+                    if (body) body.style.pointerEvents = 'none';
+                }
+            }
+        }
+
         function createShareToggleHTML(id) {
             return `
                 <label class="share-toggle-container relative inline-flex items-center cursor-pointer mr-2" title="Share ${id} to Public View">
-                    <input type="checkbox" id="share-${id}" onchange="toggleStates['${id}'] = this.checked" class="sr-only peer" checked>
+                    <input type="checkbox" id="share-${id}" onchange="toggleCardShare('${id}', this.checked)" class="sr-only peer" checked>
                     <div class="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
                 </label>
             `;
@@ -441,9 +461,7 @@
         }
 
         function syncCloud() {
-            // Placeholder: The next step will use the 'toggleStates' object to build the payload
             console.log(`Syncing robotics data to room ${cloudRoomId}...`);
-            console.log("Currently shared cards:", Object.keys(toggleStates).filter(k => toggleStates[k]));
         }
 
         let tick = 0;
