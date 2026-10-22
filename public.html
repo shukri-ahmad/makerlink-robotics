@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -30,14 +31,42 @@
         </div>
     </header>
 
-    <div id="public-container" class="flex flex-wrap gap-4 items-start content-start flex-1 w-full justify-center sm:justify-start">
-        <div class="w-full text-center text-slate-500 mt-20 font-bold flex flex-col items-center gap-4">
+    <!-- Structured Main Content Area -->
+    <div id="public-container" class="flex flex-col gap-8 flex-1 w-full max-w-screen-2xl mx-auto">
+        
+        <!-- Empty State -->
+        <div id="empty-state" class="w-full text-center text-slate-500 mt-20 font-bold flex flex-col items-center gap-4">
             <span class="text-6xl">📡</span>
             <p>Enter a Room ID to connect to a live MakerLink Host.</p>
         </div>
+
+        <!-- Dynamic Sections -->
+        <div id="section-analog" class="hidden flex-col">
+            <h3 class="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">🔌 ANALOG PINS</h3>
+            <div id="grid-analog" class="flex flex-wrap gap-4 items-start justify-center sm:justify-start"></div>
+        </div>
+
+        <div id="section-digital" class="hidden flex-col">
+            <h3 class="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">🔌 DIGITAL PINS</h3>
+            <div id="grid-digital" class="flex flex-wrap gap-4 items-start justify-center sm:justify-start"></div>
+        </div>
+
+        <div id="section-motor" class="hidden flex-col">
+            <h3 class="text-xl font-bold text-orange-400 mb-4 flex items-center gap-2">⚙️ DC MOTORS</h3>
+            <div id="grid-motor" class="flex flex-wrap gap-4 items-start justify-center sm:justify-start"></div>
+        </div>
+
+        <div id="section-servo" class="hidden flex-col">
+            <h3 class="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">🦾 SERVOS</h3>
+            <div id="grid-servo" class="flex flex-wrap gap-4 items-start justify-center sm:justify-start"></div>
+        </div>
+
     </div>
 
     <script>
+        // ==========================================
+        // FIREBASE CONFIGURATION
+        // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyAMLoInCYEYyT97RtkjW6rnT0lKTu7_xik",
             authDomain: "makerlink-b575b.firebaseapp.com",
@@ -73,14 +102,15 @@
             btn.classList.replace("hover:bg-purple-500", "hover:bg-green-500");
 
             showMsg(`Joined Room ${roomId}`);
-            document.getElementById('public-container').innerHTML = ""; 
+            document.getElementById('empty-state').innerHTML = `<span class="text-6xl text-purple-500 animate-pulse">⏳</span><p>Waiting for Host data...</p>`;
 
             db.ref('rooms/' + currentRoom + '/state').on('value', (snap) => {
                 const data = snap.val();
                 if(data) {
                     renderSharedCards(data);
                 } else {
-                    document.getElementById('public-container').innerHTML = `<div class="w-full text-center text-slate-500 mt-20 font-bold">Room ${roomId} is empty or closed.</div>`;
+                    renderSharedCards([]); // Clears out UI if Host drops
+                    document.getElementById('empty-state').innerHTML = `<span class="text-6xl">📡</span><p>Room ${roomId} is empty or closed.</p>`;
                 }
             });
         }
@@ -94,18 +124,45 @@
         }
 
         function renderSharedCards(sharedCards) {
-            const container = document.getElementById('public-container');
+            const emptyState = document.getElementById('empty-state');
             
+            if (!sharedCards || sharedCards.length === 0) {
+                emptyState.classList.remove('hidden');
+                ['analog', 'digital', 'motor', 'servo'].forEach(t => {
+                    document.getElementById(`section-${t}`).classList.add('hidden');
+                    document.getElementById(`section-${t}`).classList.remove('flex');
+                });
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            // 1. Determine which sections need to be visible based on payload types
+            const activeTypes = new Set(sharedCards.map(c => c.type));
+            ['analog', 'digital', 'motor', 'servo'].forEach(type => {
+                const section = document.getElementById(`section-${type}`);
+                if (activeTypes.has(type)) {
+                    section.classList.remove('hidden');
+                    section.classList.add('flex');
+                } else {
+                    section.classList.add('hidden');
+                    section.classList.remove('flex');
+                }
+            });
+            
+            // 2. Remove any cards that the Host un-shared
             const currentCardIds = sharedCards.map(c => `public-card-${c.id}`);
-            Array.from(container.children).forEach(child => {
-                if (child.id && !currentCardIds.includes(child.id)) {
+            document.querySelectorAll('[id^="public-card-"]').forEach(child => {
+                if (!currentCardIds.includes(child.id)) {
                     child.remove();
                 }
             });
 
+            // 3. Build or Update existing cards
             sharedCards.forEach(card => {
                 let cardEl = document.getElementById(`public-card-${card.id}`);
                 
+                // If it doesn't exist, create it and put it in the correct category section!
                 if (!cardEl) {
                     cardEl = document.createElement('div');
                     cardEl.id = `public-card-${card.id}`;
@@ -150,12 +207,15 @@
                         </div>
                         <div class="p-4 flex-1 flex flex-col justify-center bg-slate-800">${bodyHTML}</div>
                     `;
-                    container.appendChild(cardEl);
+                    
+                    // Append the card to its specific category grid!
+                    document.getElementById(`grid-${card.type}`).appendChild(cardEl);
 
+                    // Initialize charts immediately after appending so dimensions are correct
                     if (card.type === 'analog' && card.mode === 'IN') initChart(card.id);
                 }
 
-                // Dynamic UI updates based on live data
+                // 4. Update data values dynamically
                 if (card.type === 'analog' && card.mode === 'IN') {
                     const valEl = document.getElementById(`val-${card.id}`);
                     if(valEl) { valEl.innerText = card.val; pushChartData(card.id, card.val); }
