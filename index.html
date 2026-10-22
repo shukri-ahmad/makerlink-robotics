@@ -457,17 +457,32 @@
                 }
             }
         }
-
-        function updateHostUIFromCommand(cmdString) {
+function updateHostUIFromCommand(cmdString) {
             const parts = cmdString.split(":");
             if(parts.length < 2) return;
             const id = parts[0]; const val = parseInt(parts[1]);
             
-            if(id.startsWith('S') || (id.startsWith('P') && id <= 'P2')) {
+            // 1. CRUCIAL FIX: Save the new value to memory so it syncs back to the Public view!
+            advancedData[id] = val;
+            
+            // 2. Update the Host's own UI to visually match what the Guest just clicked
+            if (id.startsWith('S')) {
                 const slider = document.getElementById(`slider-${id}`);
-                if(slider) { slider.value = val; document.getElementById(`val-out-${id}`).innerText = val; }
+                if(slider) slider.value = val;
+                const valEl = document.getElementById(`val-${id}`);
+                if(valEl) valEl.innerText = val + '°';
+            } else if (id.startsWith('M')) {
+                let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)');
+                const valEl = document.getElementById(`val-${id}`);
+                if(valEl) valEl.innerText = displayStr;
+            } else if (id.startsWith('P')) {
+                const slider = document.getElementById(`slider-${id}`);
+                if(slider) slider.value = val;
+                const valOutEl = document.getElementById(`val-out-${id}`);
+                if(valOutEl) valOutEl.innerText = val;
             }
         }
+        
 
         function syncCloud() {
             const payload = [];
