@@ -462,23 +462,6 @@
             });
         }
 
-        function toggleCloud() {
-            isCloudActive = !isCloudActive; const btn = document.getElementById('btn-cloud');
-            if (isCloudActive) {
-                cloudRoomId = Math.floor(1000 + Math.random() * 9000);
-                btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
-                cloudInterval = setInterval(syncCloud, 2000);
-            } else {
-                btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
-                clearInterval(cloudInterval);
-            }
-        }
-
-        function syncCloud() {
-            console.log(`Syncing robotics data to room ${cloudRoomId}...`);
-            console.log("Currently shared cards:", Object.keys(toggleStates).filter(k => toggleStates[k]));
-        }
-
         let tick = 0;
         function toggleSim() {
             isSimActive = !isSimActive; const btn = document.getElementById('btn-sim');
@@ -498,6 +481,61 @@
             ['P0', 'P1', 'P2'].forEach((pin, i) => { extData += `${pin}:${Math.round(500 + Math.sin(tick + i)*400)},`; });
             ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach((pin) => { extData += `${pin}:${Math.random() > 0.5 ? 1 : 0},`; });
             parseTelemetry(extData);
+        }
+
+        // ==========================================
+        // Cloud Sync Logic for Public View (Guest)
+        // ==========================================
+        function toggleCloud() {
+            isCloudActive = !isCloudActive; const btn = document.getElementById('btn-cloud');
+            if (isCloudActive) {
+                cloudRoomId = Math.floor(1000 + Math.random() * 9000);
+                btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
+                cloudInterval = setInterval(syncCloud, 1000); // Sync every 1 second
+            } else {
+                btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
+                clearInterval(cloudInterval);
+            }
+        }
+
+        function syncCloud() {
+            const payload = [];
+            
+            for (const id in toggleStates) {
+                if (toggleStates[id]) { // Only package cards that are currently active/shared
+                    let type = '';
+                    if (id.startsWith('P')) {
+                        const pinNum = parseInt(id.substring(1));
+                        type = (pinNum <= 2) ? 'analog' : 'digital';
+                    } else if (id.startsWith('M')) {
+                        type = 'motor';
+                    } else if (id.startsWith('S')) {
+                        type = 'servo';
+                    }
+
+                    let mode = null;
+                    if (type === 'analog' || type === 'digital') {
+                        const viewIn = document.getElementById(`view-in-${id}`);
+                        // If the 'IN' view is hidden, the pin is currently in 'OUT' mode
+                        mode = (viewIn && viewIn.classList.contains('hidden')) ? 'OUT' : 'IN';
+                    }
+
+                    const titleInput = document.getElementById(`title-${id}`);
+                    const label = titleInput ? titleInput.value : id;
+                    const val = advancedData[id] !== undefined ? advancedData[id] : 0;
+
+                    payload.push({
+                        id: id,
+                        type: type,
+                        mode: mode,
+                        val: val,
+                        label: label
+                    });
+                }
+            }
+
+            // In a real backend, you would send this payload over WebSockets/Firebase using cloudRoomId
+            console.log(`[Cloud TX to Room ${cloudRoomId}]`, JSON.stringify(payload));
         }
     </script>
 </body>
