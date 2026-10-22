@@ -72,7 +72,6 @@
         const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
         let rxBuffer = '';
 
-        // Async Command Queue state
         let commandQueue = [];
         let isTransmitting = false;
 
@@ -147,6 +146,7 @@
                 btnIn.classList.replace('bg-blue-600', 'text-slate-500'); btnIn.classList.remove('text-white');
                 viewIn.classList.add('hidden'); viewOut.classList.remove('hidden');
                 
+                // Immediately switch pin to output mode on hardware!
                 sendBluetoothCommand(`${pin}:0`);
                 let slider = document.getElementById(`slider-${pin}`);
                 if(slider) { slider.value = 0; document.getElementById(`val-out-${pin}`).innerText = "0"; }
@@ -314,7 +314,6 @@
             document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`);
         }
 
-        // Async Command Queue - Prevents GATT packet collisions
         async function sendBluetoothCommand(cmd) {
             if (!txCharacteristic) { 
                 console.log(`[Simulated TX] ${cmd}`); 
@@ -344,7 +343,7 @@
             } finally {
                 isTransmitting = false;
                 if (commandQueue.length > 0) {
-                    setTimeout(processCommandQueue, 5); 
+                    setTimeout(processCommandQueue, 10); 
                 }
             }
         }
@@ -366,7 +365,6 @@
                 const btn = document.getElementById("btnConnect");
                 btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
 
-                // Send sync handshake
                 setTimeout(() => { sendBluetoothCommand('SYNC'); }, 300);
 
                 bluetoothDevice.addEventListener('gattserverdisconnected', () => {
