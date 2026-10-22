@@ -282,11 +282,11 @@
                             <div class="flex gap-2 w-full mt-4">
                                 <div class="flex-1 flex flex-col gap-1">
                                     <input type="number" id="pos1-val-${id}" min="0" max="180" value="0" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
-                                    <div onclick="if(!isEditMode) setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="Pos 1" readonly class="bg-transparent text-center w-full outline-none"></div>
+                                    <div onclick="if(!isEditMode) setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos1-lbl-${id}" value="Pos 1" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
                                 </div>
                                 <div class="flex-1 flex flex-col gap-1">
                                     <input type="number" id="pos2-val-${id}" min="0" max="180" value="180" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
-                                    <div onclick="if(!isEditMode) setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="Pos 2" readonly class="bg-transparent text-center w-full outline-none"></div>
+                                    <div onclick="if(!isEditMode) setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos2-lbl-${id}" value="Pos 2" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
                                 </div>
                             </div>
                         </div>
@@ -468,7 +468,8 @@
                 if(slider) { slider.value = val; document.getElementById(`val-out-${id}`).innerText = val; }
             }
         }
-function syncCloud() {
+
+        function syncCloud() {
             const payload = [];
             for (const id in toggleStates) {
                 if (toggleStates[id]) { 
@@ -487,15 +488,26 @@ function syncCloud() {
                     const label = titleInput ? titleInput.value : id;
                     const val = advancedData[id] !== undefined ? advancedData[id] : 0;
 
-                    payload.push({ id: id, type: type, mode: mode, val: val, label: label });
+                    let cardData = { id: id, type: type, mode: mode, val: val, label: label };
+                    
+                    if (type === 'servo') {
+                        const p1Val = document.getElementById(`pos1-val-${id}`);
+                        const p1Lbl = document.getElementById(`btn-pos1-lbl-${id}`);
+                        const p2Val = document.getElementById(`pos2-val-${id}`);
+                        const p2Lbl = document.getElementById(`btn-pos2-lbl-${id}`);
+                        
+                        cardData.pos1Val = p1Val ? p1Val.value : 0;
+                        cardData.pos1Lbl = p1Lbl ? p1Lbl.value : 'Pos 1';
+                        cardData.pos2Val = p2Val ? p2Val.value : 180;
+                        cardData.pos2Lbl = p2Lbl ? p2Lbl.value : 'Pos 2';
+                    }
+
+                    payload.push(cardData);
                 }
             }
-            
-            // This is the crucial part that actually uploads to your live database!
             db.ref('rooms/' + cloudRoomId + '/state').set(payload)
                 .catch((error) => console.error("Firebase Error:", error));
         }
-       
     </script>
 </body>
 </html>
