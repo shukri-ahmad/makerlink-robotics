@@ -72,6 +72,9 @@
         const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
         let rxBuffer = '';
 
+        let lastSendTime = 0;
+        const SEND_THROTTLE_MS = 30; // Protects Bluetooth stack during rapid slider sweeps
+
         window.onload = () => {
             generateAdvancedCards();
         };
@@ -310,6 +313,24 @@
             document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`);
         }
 
+        async function sendBluetoothCommand(cmd) {
+            if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
+            
+            const now = Date.now();
+            if (now - lastSendTime < SEND_THROTTLE_MS) return;
+            lastSendTime = now;
+
+            try {
+                let encoder = new TextEncoder();
+                let data = encoder.encode(cmd + '\n');
+                if (txCharacteristic.properties.writeWithoutResponse) { 
+                    await txCharacteristic.writeValueWithoutResponse(data); 
+                } else { 
+                    await txCharacteristic.writeValue(data); 
+                }
+            } catch (err) { console.error("TX Error:", err); }
+        }
+
         async function connectBluetooth() {
             if(isSimActive) { showMsg("Please turn off Sim Mode before connecting to real hardware."); return; }
             if (!navigator || !navigator.bluetooth) { showMsg("Web Bluetooth API is missing! Make sure you are using Chrome or Edge, and serving via HTTPS."); return; }
@@ -326,6 +347,9 @@
 
                 const btn = document.getElementById("btnConnect");
                 btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
+
+                // Request initial full state sync from micro:bit
+                setTimeout(() => { sendBluetoothCommand('SYNC'); }, 300);
 
                 bluetoothDevice.addEventListener('gattserverdisconnected', () => {
                     const btn = document.getElementById("btnConnect");
@@ -367,15 +391,6 @@
                     }
                 }
             });
-        }
-
-        async function sendBluetoothCommand(cmd) {
-            if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
-            try {
-                let encoder = new TextEncoder(); let data = encoder.encode(cmd + '\n');
-                if (txCharacteristic.properties.writeWithoutResponse) { await txCharacteristic.writeValueWithoutResponse(data); } 
-                else { await txCharacteristic.writeValue(data); }
-            } catch (err) { console.error("TX Error:", err); }
         }
 
         function toggleCloud() {
