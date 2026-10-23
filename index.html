@@ -8,7 +8,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -21,7 +20,6 @@
         body.is-editing .ui-editable { border-bottom: 1px dashed #facc15; border-radius: 0; transition: border 0.2s; cursor: text !important; }
         body:not(.is-editing) .ui-editable { border-bottom: 1px solid transparent; }
         
-        /* Drag cursors only show when unlocked! */
         body:not(.is-editing) .maker-card { cursor: default; }
         body.is-editing .maker-card { cursor: grab; }
         body.is-editing .maker-card:active { cursor: grabbing; }
@@ -31,15 +29,8 @@
         #terminal-output::-webkit-scrollbar-track { background: #0f172a; }
         #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* The Uniform Card Class */
         .maker-card { width: 280px; height: 340px; flex-shrink: 0; display: flex; flex-direction: column; }
         .sortable-ghost { opacity: 0.4; }
-
-        /* FOOLPROOF LED GLOW CLASSES */
-        .glow-orange { background-color: #f97316; color: #ffffff; box-shadow: 0 0 25px rgba(249, 115, 22, 0.8); border-color: #fdba74; }
-        .glow-green { background-color: #22c55e; box-shadow: 0 0 25px rgba(34, 197, 94, 0.8); border-color: #86efac; }
-        .glow-red { background-color: #dc2626; box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.3); border-color: #991b1b; }
-        .glow-off { background-color: #334155; color: #94a3b8; box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.3); border-color: #1e293b; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
@@ -63,7 +54,6 @@
     </header>
 
     <div class="flex flex-col gap-8 flex-1 pb-20">
-        
         <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg flex flex-col mb-2">
             <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-xl">
                 <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">💻 System Terminal</h3>
@@ -74,9 +64,7 @@
             </div>
         </div>
 
-        <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start">
-            <!-- Dynamic Cards Here -->
-        </div>
+        <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start"></div>
     </div>
 
     <script>
@@ -106,12 +94,11 @@
         let commandQueue = [];
         let isTransmitting = false;
 
-        // --- DRAG AND DROP SETUP ---
         const gridEl = document.getElementById('dashboard-grid');
         const sortable = new Sortable(gridEl, {
             animation: 150,
             ghostClass: 'sortable-ghost',
-            disabled: true, // Starts disabled so students can't accidentally move cards!
+            disabled: true, 
             onEnd: function (evt) { saveLayoutOrder(); }
         });
 
@@ -155,7 +142,7 @@
 
         function toggleEditMode() {
             isEditMode = !isEditMode;
-            sortable.option("disabled", !isEditMode); // Enables/Disables Dragging!
+            sortable.option("disabled", !isEditMode); 
             
             const btn = document.getElementById('btn-edit');
             if (isEditMode) {
@@ -178,22 +165,24 @@
             appendTerminal("Dashboard cleared manually.");
         }
 
-        // --- BULLETPROOF DIGITAL UI UPDATER ---
+        // --- NEW NATIVE RED/BLACK DIGITAL UPDATER ---
         function updateDigitalUI(id, val) {
             let v = Number(val);
             advancedData[id] = v;
             
+            // Input Indicator LED
             let valIn = document.getElementById(`val-${id}`);
             if(valIn) {
                 valIn.innerText = v === 1 ? 'HIGH' : 'LOW';
-                valIn.className = v === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 border-[4px] glow-orange" 
-                                          : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 border-[4px] glow-off";
+                valIn.className = v === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-red-600 text-white shadow-[0_0_25px_rgba(220,38,38,0.8)] border-[4px] border-red-400" 
+                                          : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-slate-900 text-slate-500 shadow-inner border-[4px] border-slate-800";
             }
             
+            // Output Status LED
             let valOut = document.getElementById(`val-out-${id}`);
             if(valOut) {
-                valOut.className = v === 1 ? "w-12 h-12 mb-6 rounded-full transition-all duration-300 border-[3px] glow-green"
-                                           : "w-12 h-12 mb-6 rounded-full transition-all duration-300 border-[3px] glow-red";
+                valOut.className = v === 1 ? "w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-red-600 shadow-[0_0_20px_rgba(220,38,38,0.8)] border-[3px] border-red-400"
+                                           : "w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-slate-900 shadow-inner border-[3px] border-slate-800";
             }
         }
 
@@ -224,10 +213,14 @@
                 html += `<div id="val-out-${id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">${startVals[0]}</div><input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto"><div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
             } 
             else if (type === 'digital' && mode === 'IN') {
-                html += `<div id="val-${id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 border-[4px] glow-off">LOW</div>`;
+                html += `<div id="val-${id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-slate-900 text-slate-500 shadow-inner border-[4px] border-slate-800">LOW</div>`;
             } 
             else if (type === 'digital' && mode === 'OUT') {
-                html += `<div id="val-out-${id}" class="w-12 h-12 mb-6 rounded-full transition-all duration-300 border-[3px] glow-red"></div><div class="flex justify-between gap-3 w-full mt-auto"><button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-red-700 transition-all border border-red-700">OFF</button><button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-4 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-green-700 transition-all border border-green-700">ON</button></div>`;
+                html += `<div id="val-out-${id}" class="w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-slate-900 shadow-inner border-[3px] border-slate-800"></div>
+                         <div class="flex justify-between gap-3 w-full mt-auto">
+                             <button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-lg shadow-lg active:bg-slate-600 transition-all border border-slate-700">OFF</button>
+                             <button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-red-700 transition-all border border-red-500">ON</button>
+                         </div>`;
             } 
             else if (type === 'text') {
                 html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-2xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
@@ -408,7 +401,7 @@
                 btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
                 
                 db.ref('rooms/' + cloudRoomId).remove(); 
-                saveLayoutOrder(); // Push Layout automatically
+                saveLayoutOrder(); 
                 
                 db.ref('rooms/' + cloudRoomId + '/command').on('child_added', (snap) => {
                     const cmdData = snap.val();
