@@ -164,4 +164,70 @@
                 let slider = document.getElementById(`${id}-slider`);
                 if (slider && valDisplay) {
                     slider.value = val;
-                    valDisplay
+                    valDisplay.innerText = val;
+                }
+            } else if (id.startsWith("P")) {
+                // Check if Analog or Digital based on UI elements
+                let progress = document.getElementById(`${id}-progress`);
+                if (progress && valDisplay) {
+                    valDisplay.innerText = val;
+                    progress.style.width = (val / 1023 * 100) + "%";
+                }
+                let indicator = document.getElementById(`${id}-indicator`);
+                if (indicator) {
+                    if (val === 1) indicator.classList.add('active');
+                    else indicator.classList.remove('active');
+                }
+            }
+        }
+
+        // --- Dynamic UI Card Generators ---
+        function createCard(data) {
+            const id = data[0];
+            const type = data[1];
+            
+            // Prevent duplicate cards if microbit resets
+            if(document.getElementById(`card-${id}`)) return; 
+
+            const dash = document.getElementById('dashboard');
+            let html = `<div class="card" id="card-${id}"><div class="card-header"><span>${id} (${type})</span></div>`;
+
+            if (type === "MOTOR") {
+                let start = data[2], cw = data[3], ccw = data[4];
+                html += `
+                    <div class="val-display" id="${id}-val">${start}</div>
+                    <input type="range" id="${id}-slider" min="${ccw}" max="${cw}" value="${start}" 
+                           oninput="document.getElementById('${id}-val').innerText=this.value; sendCommand('${id}', this.value)">
+                    <div class="btn-group">
+                        <button onclick="document.getElementById('${id}-slider').value=0; sendCommand('${id}', 0); document.getElementById('${id}-val').innerText=0;">STOP</button>
+                    </div>`;
+            } 
+            else if (type === "SERVO") {
+                let start = data[2], pos1 = data[3], pos2 = data[4];
+                html += `
+                    <div class="val-display" id="${id}-val">${start}°</div>
+                    <input type="range" id="${id}-slider" min="0" max="180" value="${start}" 
+                           oninput="document.getElementById('${id}-val').innerText=this.value+'°'; sendCommand('${id}', this.value)">
+                    <div class="btn-group">
+                        <button onclick="document.getElementById('${id}-slider').value=${pos1}; sendCommand('${id}', ${pos1}); document.getElementById('${id}-val').innerText='${pos1}°';">Pos 1 (${pos1}°)</button>
+                        <button onclick="document.getElementById('${id}-slider').value=${pos2}; sendCommand('${id}', ${pos2}); document.getElementById('${id}-val').innerText='${pos2}°';">Pos 2 (${pos2}°)</button>
+                    </div>`;
+            } 
+            else if (type === "IN" || type === "OUT") {
+                // If it's P0, P1, P2 it's usually analog. P9+ is usually digital.
+                let pinNum = parseInt(id.replace("P", ""));
+                if (pinNum <= 2) {
+                    html += `
+                        <div class="val-display" id="${id}-val">${data[2]}</div>
+                        <div class="progress-bar"><div class="progress-fill" id="${id}-progress"></div></div>`;
+                } else {
+                    html += `<div class="digital-indicator" id="${id}-indicator"></div>`;
+                }
+            }
+
+            html += `</div>`;
+            dash.innerHTML += html;
+        }
+    </script>
+</body>
+</html>
