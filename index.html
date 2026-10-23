@@ -20,6 +20,7 @@
         body.is-editing .ui-editable { border-bottom: 1px dashed #facc15; border-radius: 0; transition: border 0.2s; cursor: text !important; }
         body:not(.is-editing) .ui-editable { border-bottom: 1px solid transparent; }
         
+        /* Drag cursors only show when unlocked */
         body:not(.is-editing) .maker-card { cursor: default; }
         body.is-editing .maker-card { cursor: grab; }
         body.is-editing .maker-card:active { cursor: grabbing; }
@@ -165,24 +166,38 @@
             appendTerminal("Dashboard cleared manually.");
         }
 
-        // --- NEW NATIVE RED/BLACK DIGITAL UPDATER ---
+        // --- BULLETPROOF JAVASCRIPT INLINE CSS FOR LEDS ---
         function updateDigitalUI(id, val) {
             let v = Number(val);
             advancedData[id] = v;
             
-            // Input Indicator LED
             let valIn = document.getElementById(`val-${id}`);
             if(valIn) {
                 valIn.innerText = v === 1 ? 'HIGH' : 'LOW';
-                valIn.className = v === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-red-600 text-white shadow-[0_0_25px_rgba(220,38,38,0.8)] border-[4px] border-red-400" 
-                                          : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-slate-900 text-slate-500 shadow-inner border-[4px] border-slate-800";
+                if(v === 1) {
+                    valIn.style.backgroundColor = '#dc2626'; // Red
+                    valIn.style.color = '#ffffff';
+                    valIn.style.borderColor = '#f87171';
+                    valIn.style.boxShadow = '0 0 25px rgba(220, 38, 38, 0.8)';
+                } else {
+                    valIn.style.backgroundColor = '#0f172a'; // Black/Slate
+                    valIn.style.color = '#64748b';
+                    valIn.style.borderColor = '#1e293b';
+                    valIn.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)';
+                }
             }
             
-            // Output Status LED
             let valOut = document.getElementById(`val-out-${id}`);
             if(valOut) {
-                valOut.className = v === 1 ? "w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-red-600 shadow-[0_0_20px_rgba(220,38,38,0.8)] border-[3px] border-red-400"
-                                           : "w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-slate-900 shadow-inner border-[3px] border-slate-800";
+                if(v === 1) {
+                    valOut.style.backgroundColor = '#dc2626'; // Red
+                    valOut.style.borderColor = '#f87171';
+                    valOut.style.boxShadow = '0 0 20px rgba(220, 38, 38, 0.8)';
+                } else {
+                    valOut.style.backgroundColor = '#0f172a'; // Black/Slate
+                    valOut.style.borderColor = '#1e293b';
+                    valOut.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)';
+                }
             }
         }
 
@@ -213,10 +228,10 @@
                 html += `<div id="val-out-${id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">${startVals[0]}</div><input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto"><div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
             } 
             else if (type === 'digital' && mode === 'IN') {
-                html += `<div id="val-${id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-slate-900 text-slate-500 shadow-inner border-[4px] border-slate-800">LOW</div>`;
+                html += `<div id="val-${id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 border-[4px]">LOW</div>`;
             } 
             else if (type === 'digital' && mode === 'OUT') {
-                html += `<div id="val-out-${id}" class="w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-slate-900 shadow-inner border-[3px] border-slate-800"></div>
+                html += `<div id="val-out-${id}" class="w-12 h-12 mb-6 rounded-full transition-all duration-200 border-[3px]"></div>
                          <div class="flex justify-between gap-3 w-full mt-auto">
                              <button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-lg shadow-lg active:bg-slate-600 transition-all border border-slate-700">OFF</button>
                              <button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-red-700 transition-all border border-red-500">ON</button>
@@ -238,6 +253,8 @@
             gridEl.appendChild(card);
             
             if (type === 'analog' && mode === 'IN') initSensorChart(id);
+            if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0); // Sets initial LED colors reliably!
+
             applySavedLayout();
             saveLayoutOrder(); 
         }
