@@ -180,9 +180,9 @@
                     } else if (card.type === 'analog' && card.mode === 'OUT') {
                         bodyHTML = `<div class="flex flex-col items-center"><div id="val-${card.id}" class="text-3xl font-mono ${colorClass} font-bold mb-4">0</div><input type="range" min="0" max="1023" value="0" oninput="document.getElementById('val-${card.id}').innerText=this.value; sendRemoteCommand('${card.id}:'+this.value);" class="w-full"></div>`;
                     } else if (card.type === 'digital' && card.mode === 'IN') {
-                        bodyHTML = `<div class="flex items-center gap-4 justify-center min-h-[70px]"><div class="text-[10px] font-bold text-slate-500 uppercase">State</div><div id="val-${card.id}" class="text-4xl font-mono text-slate-500 font-bold">0</div></div>`;
+                        bodyHTML = `<div class="flex items-center justify-center w-full min-h-[90px]"><div id="val-${card.id}" class="w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[3px] border-slate-800">LOW</div></div>`;
                     } else if (card.type === 'digital' && card.mode === 'OUT') {
-                        bodyHTML = `<div class="flex justify-between gap-2 min-h-[70px] items-center w-full"><button onclick="sendRemoteCommand('${card.id}:0')" class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 font-bold shadow-inner border border-slate-600">LOW</button><button onclick="sendRemoteCommand('${card.id}:1')" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-bold shadow-lg border border-emerald-500">HIGH</button></div>`;
+                        bodyHTML = `<div class="w-full flex flex-col items-center justify-center min-h-[90px]"><div id="val-out-${card.id}" class="w-8 h-8 mb-3 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[2px] border-red-800"></div><div class="flex justify-between gap-2 w-full"><button onclick="sendRemoteCommand('${card.id}:0')" class="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold shadow-lg border border-red-700">OFF (0)</button><button onclick="sendRemoteCommand('${card.id}:1')" class="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold shadow-lg border border-green-700">ON (1)</button></div></div>`;
                     } else if (card.type === 'motor') {
                         bodyHTML = `
                             <div class="w-full flex flex-col items-center">
@@ -220,14 +220,28 @@
                 if (card.type === 'analog' && card.mode === 'IN') {
                     const valEl = document.getElementById(`val-${card.id}`);
                     if(valEl) { valEl.innerText = card.val; pushChartData(card.id, card.val); }
-                } else if (card.type === 'digital' && card.mode === 'IN') {
-                    const valEl = document.getElementById(`val-${card.id}`);
-                    if(valEl) {
-                        valEl.innerText = card.val;
-                        valEl.className = card.val === 1 ? 'text-4xl font-mono text-emerald-400 font-bold drop-shadow-lg' : 'text-4xl font-mono text-slate-500 font-bold';
+                } else if (card.type === 'digital') {
+                    // Update input mode if it exists
+                    const valIn = document.getElementById(`val-${card.id}`);
+                    if(valIn) {
+                        valIn.innerText = card.val === 1 ? 'HIGH' : 'LOW';
+                        if (card.val === 1) {
+                            valIn.className = "w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.6)] border-[3px] border-orange-400";
+                        } else {
+                            valIn.className = "w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[3px] border-slate-800";
+                        }
+                    }
+                    
+                    // Update output mode indicator if it exists
+                    const valOut = document.getElementById(`val-out-${card.id}`);
+                    if(valOut) {
+                        if (card.val === 1) {
+                            valOut.className = "w-8 h-8 mb-3 rounded-full bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)] transition-all duration-300 border-[2px] border-green-400";
+                        } else {
+                            valOut.className = "w-8 h-8 mb-3 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[2px] border-red-800";
+                        }
                     }
                 } else if (card.type === 'motor') {
-                    // NEW: Update the public motor UI based on host state!
                     const valEl = document.getElementById(`val-${card.id}`);
                     if (valEl) {
                         let val = Number(card.val) || 0;
