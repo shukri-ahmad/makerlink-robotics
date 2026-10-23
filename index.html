@@ -16,17 +16,17 @@
         * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
         body { background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
         .header h1 { margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
         
-        button { cursor: pointer; padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        button { cursor: pointer; padding: 10px 18px; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; transition: 0.2s; }
         .btn-connect { background-color: var(--primary); color: #000; }
         .btn-connect:hover { background-color: #16a34a; }
         .btn-disconnect { background-color: var(--danger); color: #fff; display: none; }
         
         #dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         
-        .card { background-color: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .card { background-color: var(--card-bg); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2); }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; color: var(--primary); font-size: 1.2rem; }
         
         .val-display { font-size: 1.5rem; font-weight: bold; text-align: right; }
@@ -37,13 +37,13 @@
         .btn-group button { flex: 1; background-color: #334155; color: white; border: 1px solid #475569; }
         .btn-group button:hover { background-color: #475569; }
 
-        .progress-bar { width: 100%; background-color: #334155; border-radius: 99px; height: 20px; overflow: hidden; position: relative; margin-top: 15px; }
+        .progress-bar { width: 100%; background-color: #334155; border-radius: 99px; height: 20px; overflow: hidden; margin-top: 15px; }
         .progress-fill { background-color: var(--primary); height: 100%; width: 0%; transition: 0.1s linear; }
 
-        .digital-indicator { width: 30px; height: 30px; border-radius: 50%; background-color: #334155; margin-left: auto; transition: 0.2s; }
-        .digital-indicator.active { background-color: var(--primary); box-shadow: 0 0 10px var(--primary); }
+        .digital-indicator { width: 28px; height: 28px; border-radius: 50%; background-color: #334155; margin-left: auto; transition: 0.2s; }
+        .digital-indicator.active { background-color: var(--primary); box-shadow: 0 0 12px var(--primary); }
         
-        #status { font-size: 0.9rem; color: var(--text-muted); }
+        #status { font-size: 0.95rem; color: var(--text-muted); font-weight: normal; }
     </style>
 </head>
 <body>
@@ -51,27 +51,37 @@
     <div class="header">
         <h1>📡 MakerLink Dashboard <span id="status">(Disconnected)</span></h1>
         <div>
-            <button id="btnConnect" class="btn-connect" onclick="connect()">Connect micro:bit</button>
-            <button id="btnDisconnect" class="btn-disconnect" onclick="disconnect()">Disconnect</button>
+            <button id="btnConnect" class="btn-connect">Connect micro:bit</button>
+            <button id="btnDisconnect" class="btn-disconnect">Disconnect</button>
         </div>
     </div>
 
-    <!-- Cards will be generated here automatically -->
+    <!-- Cards automatically build here -->
     <div id="dashboard"></div>
 
     <script>
-        // --- Web Bluetooth UUIDs (Nordic UART) ---
         const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-        const UART_RX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Send to micro:bit
-        const UART_TX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Read from micro:bit
+        const UART_RX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+        const UART_TX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
         let bleDevice, rxCharacteristic, txCharacteristic;
         let receiveBuffer = "";
 
-        // --- Connection Logic ---
+        // Attach event listeners explicitly after DOM loads
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('btnConnect').addEventListener('click', connect);
+            document.getElementById('btnDisconnect').addEventListener('click', disconnect);
+        });
+
         async function connect() {
+            if (!navigator.bluetooth) {
+                alert("Web Bluetooth is not supported on this browser. Please use Google Chrome or Microsoft Edge.");
+                return;
+            }
+
             try {
                 document.getElementById('status').innerText = "(Scanning...)";
+                
                 bleDevice = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: "BBC micro:bit" }],
                     optionalServices: [UART_SERVICE_UUID]
@@ -88,18 +98,17 @@
                 await txCharacteristic.startNotifications();
                 txCharacteristic.addEventListener('characteristicvaluechanged', handleIncomingData);
 
-                // UI Updates
                 document.getElementById('btnConnect').style.display = 'none';
                 document.getElementById('btnDisconnect').style.display = 'inline-block';
                 document.getElementById('status').innerText = `(Connected: ${bleDevice.name})`;
                 document.getElementById('status').style.color = "var(--primary)";
                 
-                // Clear old cards when connecting a new robot
                 document.getElementById('dashboard').innerHTML = "";
 
             } catch (error) {
-                console.error(error);
-                document.getElementById('status').innerText = "(Failed to connect)";
+                console.error("Bluetooth Error:", error);
+                document.getElementById('status').innerText = "(Connection Cancelled or Failed)";
+                document.getElementById('status').style.color = "var(--danger)";
             }
         }
 
@@ -113,7 +122,6 @@
             document.getElementById('status').style.color = "var(--text-muted)";
         }
 
-        // --- Send Data to micro:bit ---
         async function sendCommand(id, value) {
             if (!rxCharacteristic) return;
             const cmd = `${id}:${value}\n`;
@@ -121,19 +129,17 @@
             try {
                 await rxCharacteristic.writeValue(encoder.encode(cmd));
             } catch (error) {
-                console.error("Write error:", error);
+                console.error("Write Error:", error);
             }
         }
 
-        // --- Receive Data from micro:bit ---
         function handleIncomingData(event) {
             const decoder = new TextDecoder();
             const chunk = decoder.decode(event.target.value);
             receiveBuffer += chunk;
 
-            // Process line by line
             let lines = receiveBuffer.split("\n");
-            receiveBuffer = lines.pop(); // Keep incomplete chunk in buffer
+            receiveBuffer = lines.pop();
 
             for (let line of lines) {
                 parseMessage(line.trim());
@@ -149,14 +155,12 @@
             let id = parts[0];
             let payload = parts[1];
 
-            // 1. Handle Initialization Commands
             if (id === "INIT") {
-                let initData = payload.split(","); // e.g., ["M1", "MOTOR", "0", "255", "-255"]
+                let initData = payload.split(",");
                 createCard(initData);
                 return;
             }
 
-            // 2. Handle Live State Updates (Automations / Syncing)
             let val = parseInt(payload);
             let valDisplay = document.getElementById(`${id}-val`);
             
@@ -164,10 +168,9 @@
                 let slider = document.getElementById(`${id}-slider`);
                 if (slider && valDisplay) {
                     slider.value = val;
-                    valDisplay.innerText = val;
+                    valDisplay.innerText = id.startsWith("S") ? `${val}°` : val;
                 }
             } else if (id.startsWith("P")) {
-                // Check if Analog or Digital based on UI elements
                 let progress = document.getElementById(`${id}-progress`);
                 if (progress && valDisplay) {
                     valDisplay.innerText = val;
@@ -181,16 +184,18 @@
             }
         }
 
-        // --- Dynamic UI Card Generators ---
         function createCard(data) {
             const id = data[0];
             const type = data[1];
             
-            // Prevent duplicate cards if microbit resets
             if(document.getElementById(`card-${id}`)) return; 
 
             const dash = document.getElementById('dashboard');
-            let html = `<div class="card" id="card-${id}"><div class="card-header"><span>${id} (${type})</span></div>`;
+            let card = document.createElement('div');
+            card.className = "card";
+            card.id = `card-${id}`;
+
+            let html = `<div class="card-header"><span>${id} (${type})</span></div>`;
 
             if (type === "MOTOR") {
                 let start = data[2], cw = data[3], ccw = data[4];
@@ -214,7 +219,6 @@
                     </div>`;
             } 
             else if (type === "IN" || type === "OUT") {
-                // If it's P0, P1, P2 it's usually analog. P9+ is usually digital.
                 let pinNum = parseInt(id.replace("P", ""));
                 if (pinNum <= 2) {
                     html += `
@@ -225,8 +229,8 @@
                 }
             }
 
-            html += `</div>`;
-            dash.innerHTML += html;
+            card.innerHTML = html;
+            dash.appendChild(card);
         }
     </script>
 </body>
