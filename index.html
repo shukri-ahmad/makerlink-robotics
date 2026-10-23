@@ -6,7 +6,6 @@
     <title>MakerLink Host</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Add SortableJS for smooth drag and drop -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <!-- Firebase SDKs -->
@@ -15,17 +14,17 @@
 
     <style>
         body { font-family: 'Inter', system-ui, sans-serif; }
-        .toggle-checkbox:checked { right: 0; border-color: #22c55e; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #22c55e; }
-        .toggle-checkbox { right: 0; z-index: 1; border-color: #e2e8f0; transition: all 0.3s; }
-        .toggle-label { width: 3rem; height: 1.5rem; background-color: #64748b; border-radius: 9999px; transition: all 0.3s; }
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: #38bdf8; cursor: pointer; margin-top: -6px; }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: #334155; border-radius: 4px; }
-        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         
         body.is-editing .ui-editable { border-bottom: 1px dashed #facc15; border-radius: 0; transition: border 0.2s; cursor: text !important; }
         body:not(.is-editing) .ui-editable { border-bottom: 1px solid transparent; }
+        
+        /* Drag cursors only show when unlocked! */
+        body:not(.is-editing) .maker-card { cursor: default; }
+        body.is-editing .maker-card { cursor: grab; }
+        body.is-editing .maker-card:active { cursor: grabbing; }
         
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
         #terminal-output::-webkit-scrollbar { width: 6px; }
@@ -33,16 +32,14 @@
         #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
         /* The Uniform Card Class */
-        .maker-card {
-            width: 280px;
-            height: 340px;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            cursor: grab;
-        }
-        .maker-card:active { cursor: grabbing; }
+        .maker-card { width: 280px; height: 340px; flex-shrink: 0; display: flex; flex-direction: column; }
         .sortable-ghost { opacity: 0.4; }
+
+        /* FOOLPROOF LED GLOW CLASSES */
+        .glow-orange { background-color: #f97316; color: #ffffff; box-shadow: 0 0 25px rgba(249, 115, 22, 0.8); border-color: #fdba74; }
+        .glow-green { background-color: #22c55e; box-shadow: 0 0 25px rgba(34, 197, 94, 0.8); border-color: #86efac; }
+        .glow-red { background-color: #dc2626; box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.3); border-color: #991b1b; }
+        .glow-off { background-color: #334155; color: #94a3b8; box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.3); border-color: #1e293b; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
@@ -59,7 +56,7 @@
         </div>
         <div class="flex flex-wrap gap-3 justify-center">
             <button id="btnConnect" onclick="connectBluetooth()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-lg">🔌 Connect</button>
-            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">🔒 Lock Titles</button>
+            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">🔒 Lock UI</button>
             <button id="btn-cloud" onclick="toggleCloud()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">☁️ Go Public</button>
             <button id="btn-clear" onclick="clearDashboard()" class="bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg">🗑️ Clear</button>
         </div>
@@ -67,7 +64,6 @@
 
     <div class="flex flex-col gap-8 flex-1 pb-20">
         
-        <!-- Terminal Box -->
         <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg flex flex-col mb-2">
             <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-xl">
                 <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">💻 System Terminal</h3>
@@ -78,11 +74,9 @@
             </div>
         </div>
 
-        <!-- The Single Dynamic Playing Card Grid -->
         <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start">
-            <!-- Cards will be injected here via micro:bit INIT commands -->
+            <!-- Dynamic Cards Here -->
         </div>
-
     </div>
 
     <script>
@@ -112,31 +106,26 @@
         let commandQueue = [];
         let isTransmitting = false;
 
-        // --- SORTABLE JS (DRAG AND DROP) ---
+        // --- DRAG AND DROP SETUP ---
         const gridEl = document.getElementById('dashboard-grid');
         const sortable = new Sortable(gridEl, {
             animation: 150,
             ghostClass: 'sortable-ghost',
-            onEnd: function (evt) {
-                saveLayoutOrder();
-            }
+            disabled: true, // Starts disabled so students can't accidentally move cards!
+            onEnd: function (evt) { saveLayoutOrder(); }
         });
 
         function saveLayoutOrder() {
             const order = Array.from(gridEl.children).map(c => c.id.replace('card-', ''));
             localStorage.setItem('makerlink_layout', JSON.stringify(order));
-            
-            // Instantly sync the layout change to the Public viewers
-            if (isCloudActive && cloudRoomId) {
-                db.ref('rooms/' + cloudRoomId + '/layout').set(order);
-            }
+            if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); }
         }
 
         function applySavedLayout() {
             const saved = JSON.parse(localStorage.getItem('makerlink_layout') || '[]');
             saved.forEach(id => {
                 const card = document.getElementById(`card-${id}`);
-                if (card) { gridEl.appendChild(card); } // Appending moves it to the correct sorted spot
+                if (card) { gridEl.appendChild(card); }
             });
         }
 
@@ -152,7 +141,6 @@
         function appendTerminal(msg) {
             const term = document.getElementById('terminal-output');
             if (term.innerHTML.includes("Waiting for micro:bit SYNC...")) term.innerHTML = '';
-            
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
             const line = document.createElement('div');
             let colorClass = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-400';
@@ -167,15 +155,17 @@
 
         function toggleEditMode() {
             isEditMode = !isEditMode;
+            sortable.option("disabled", !isEditMode); // Enables/Disables Dragging!
+            
             const btn = document.getElementById('btn-edit');
             if (isEditMode) {
                 document.body.classList.add('is-editing');
-                btn.innerHTML = "🔓 Editing Titles";
+                btn.innerHTML = "🔓 Edit UI (Drag enabled)";
                 btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
                 document.querySelectorAll('.ui-editable').forEach(el => el.removeAttribute('readonly'));
             } else {
                 document.body.classList.remove('is-editing');
-                btn.innerHTML = "🔒 Lock Titles";
+                btn.innerHTML = "🔒 Lock UI";
                 btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 document.querySelectorAll('.ui-editable').forEach(el => el.setAttribute('readonly', true));
             }
@@ -188,10 +178,27 @@
             appendTerminal("Dashboard cleared manually.");
         }
 
-        // --- UNIFORM PLAYING CARD BUILDERS ---
+        // --- BULLETPROOF DIGITAL UI UPDATER ---
+        function updateDigitalUI(id, val) {
+            let v = Number(val);
+            advancedData[id] = v;
+            
+            let valIn = document.getElementById(`val-${id}`);
+            if(valIn) {
+                valIn.innerText = v === 1 ? 'HIGH' : 'LOW';
+                valIn.className = v === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 border-[4px] glow-orange" 
+                                          : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 border-[4px] glow-off";
+            }
+            
+            let valOut = document.getElementById(`val-out-${id}`);
+            if(valOut) {
+                valOut.className = v === 1 ? "w-12 h-12 mb-6 rounded-full transition-all duration-300 border-[3px] glow-green"
+                                           : "w-12 h-12 mb-6 rounded-full transition-all duration-300 border-[3px] glow-red";
+            }
+        }
 
         function createPlayingCard(id, type, mode, startVals) {
-            if(document.getElementById(`card-${id}`)) return; // Don't duplicate
+            if(document.getElementById(`card-${id}`)) return; 
 
             activeCardTypes[id] = { type: type, mode: mode };
             advancedData[id] = startVals ? startVals[0] : 0;
@@ -204,95 +211,42 @@
             let colorClass = type === 'analog' ? 'text-purple-400' : type === 'digital' ? 'text-emerald-400' : type === 'motor' ? 'text-orange-400' : type === 'text' ? 'text-pink-400' : 'text-blue-400';
             let iconStr = type === 'analog' ? '📊' : type === 'digital' ? '🚥' : type === 'motor' ? '⚙️' : type === 'text' ? '📝' : '🦾';
 
-            // Top Header
             let html = `
                 <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center rounded-t-xl">
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-sm ${colorClass}">${id}</span>
-                        <span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span>
-                    </div>
-                </div>
+                    <div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div>
+                </div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
             `;
 
-            // Middle Content Area
-            html += `<div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">`;
-
             if (type === 'analog' && mode === 'IN') {
-                html += `
-                    <div id="val-${id}" class="text-4xl font-mono ${colorClass} font-bold mb-2">0</div>
-                    <div class="w-full flex-1 bg-slate-900 rounded-lg p-1 border border-slate-700 min-h-[100px] mb-2"><canvas id="chart-${id}"></canvas></div>
-                    <div class="flex gap-2 w-full mt-auto">
-                        <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="0" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
-                        <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="1023" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
-                        <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="20" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
-                    </div>`;
+                html += `<div id="val-${id}" class="text-4xl font-mono ${colorClass} font-bold mb-2">0</div><div class="w-full flex-1 bg-slate-900 rounded-lg p-1 border border-slate-700 min-h-[100px] mb-2"><canvas id="chart-${id}"></canvas></div><div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="0" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="1023" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="20" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
             } 
             else if (type === 'analog' && mode === 'OUT') {
-                html += `
-                    <div id="val-out-${id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">${startVals[0]}</div>
-                    <input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto">
-                    <div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
+                html += `<div id="val-out-${id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">${startVals[0]}</div><input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto"><div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
             } 
             else if (type === 'digital' && mode === 'IN') {
-                html += `<div id="val-${id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[4px] border-slate-800">LOW</div>`;
+                html += `<div id="val-${id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 border-[4px] glow-off">LOW</div>`;
             } 
             else if (type === 'digital' && mode === 'OUT') {
-                html += `
-                    <div id="val-out-${id}" class="w-12 h-12 mb-6 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[3px] border-red-800"></div>
-                    <div class="flex justify-between gap-3 w-full mt-auto">
-                        <button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-red-700 transition-all border border-red-700">OFF</button>
-                        <button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-4 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-green-700 transition-all border border-green-700">ON</button>
-                    </div>`;
+                html += `<div id="val-out-${id}" class="w-12 h-12 mb-6 rounded-full transition-all duration-300 border-[3px] glow-red"></div><div class="flex justify-between gap-3 w-full mt-auto"><button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-red-700 transition-all border border-red-700">OFF</button><button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-4 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-green-700 transition-all border border-green-700">ON</button></div>`;
             } 
             else if (type === 'text') {
                 html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-2xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
             }
             else if (type === 'motor') {
-                html += `
-                    <div id="val-${id}" class="text-xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-3 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
-                    <div class="flex gap-2 w-full mb-6">
-                        <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPEED</label><input type="number" id="ccw-spd-${id}" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 shadow-inner"></div>
-                        <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPEED</label><input type="number" id="cw-spd-${id}" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 shadow-inner"></div>
-                    </div>
-                    <div class="flex gap-2 w-full mt-auto">
-                        <button onclick="setMotor('${id}', 'ccw')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer">⏪ CCW</button>
-                        <button onclick="setMotor('${id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-red-700/50 cursor-pointer">⏹️ STOP</button>
-                        <button onclick="setMotor('${id}', 'cw')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-green-700/50 cursor-pointer">CW ⏩</button>
-                    </div>`;
+                html += `<div id="val-${id}" class="text-xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-3 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div><div class="flex gap-2 w-full mb-6"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPEED</label><input type="number" id="ccw-spd-${id}" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPEED</label><input type="number" id="cw-spd-${id}" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div><div class="flex gap-2 w-full mt-auto"><button onclick="setMotor('${id}', 'ccw')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer">⏪ CCW</button><button onclick="setMotor('${id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-red-700/50 cursor-pointer">⏹️ STOP</button><button onclick="setMotor('${id}', 'cw')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-green-700/50 cursor-pointer">CW ⏩</button></div>`;
             } 
             else if (type === 'servo') {
-                html += `
-                    <div id="val-${id}" class="text-4xl font-mono text-blue-400 font-bold mb-6">${startVals[0]}°</div>
-                    <input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0]}" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-6 mt-auto">
-                    <div class="flex gap-3 w-full">
-                        <div class="flex-1 flex flex-col gap-2">
-                            <input type="number" id="pos1-val-${id}" value="${startVals[1]}" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner">
-                            <button onclick="setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg border border-blue-700/50">Pos 1</button>
-                        </div>
-                        <div class="flex-1 flex flex-col gap-2">
-                            <input type="number" id="pos2-val-${id}" value="${startVals[2]}" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner">
-                            <button onclick="setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg border border-blue-700/50">Pos 2</button>
-                        </div>
-                    </div>`;
+                html += `<div id="val-${id}" class="text-4xl font-mono text-blue-400 font-bold mb-6">${startVals[0]}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0]}" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-6 mt-auto"><div class="flex gap-3 w-full"><div class="flex-1 flex flex-col gap-2"><input type="number" id="pos1-val-${id}" value="${startVals[1]}" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner"><button onclick="setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg border border-blue-700/50">Pos 1</button></div><div class="flex-1 flex flex-col gap-2"><input type="number" id="pos2-val-${id}" value="${startVals[2]}" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner"><button onclick="setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg border border-blue-700/50">Pos 2</button></div></div>`;
             }
 
-            html += `</div>`; // Close Middle Content
-
-            // Bottom Label Section
-            html += `
-                <div class="p-2 bg-slate-900 border-t border-slate-700 rounded-b-xl flex justify-center">
-                    <input type="text" id="title-${id}" value="Custom Label" readonly class="ui-editable font-bold text-xs text-slate-400 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-full text-center placeholder-slate-500 cursor-default" placeholder="Name this card...">
-                </div>
-            `;
+            html += `</div><div class="p-2 bg-slate-900 border-t border-slate-700 rounded-b-xl flex justify-center"><input type="text" id="title-${id}" value="Custom Label" readonly class="ui-editable font-bold text-xs text-slate-400 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-full text-center placeholder-slate-500 cursor-default" placeholder="Name this card..."></div>`;
 
             card.innerHTML = html;
             gridEl.appendChild(card);
             
             if (type === 'analog' && mode === 'IN') initSensorChart(id);
-
-            // Once dynamically added, re-apply the saved sort order
             applySavedLayout();
-            saveLayoutOrder(); // Re-save to include this new card
+            saveLayoutOrder(); 
         }
 
         function initSensorChart(id) {
@@ -335,21 +289,6 @@
             document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`);
         }
 
-        function updateDigitalUI(id, val) {
-            advancedData[id] = val;
-            let valIn = document.getElementById(`val-${id}`);
-            if(valIn) {
-                valIn.innerText = val === 1 ? 'HIGH' : 'LOW';
-                valIn.className = val === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-orange-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.8)] border-[4px] border-orange-400" 
-                                            : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[4px] border-slate-800";
-            }
-            let valOut = document.getElementById(`val-out-${id}`);
-            if(valOut) {
-                valOut.className = val === 1 ? "w-12 h-12 mb-6 rounded-full bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.8)] transition-all duration-300 border-[3px] border-green-400"
-                                             : "w-12 h-12 mb-6 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[3px] border-red-800";
-            }
-        }
-
         async function sendBluetoothCommand(cmd) {
             if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
             commandQueue.push(cmd); processCommandQueue();
@@ -380,7 +319,6 @@
                 const btn = document.getElementById("btnConnect");
                 btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
 
-                // Send SYNC handshake to micro:bit to request UI cards!
                 setTimeout(() => { 
                     sendBluetoothCommand('SYNC'); 
                     appendTerminal("Bluetooth connected. Sent SYNC to hardware."); 
@@ -403,7 +341,6 @@
                 let line = lines.shift().trim();
                 if (line.startsWith("LOG:")) { appendTerminal(line.substring(4)); } 
                 else if (line.startsWith("INIT:")) {
-                    // Spawn a playing card! e.g., INIT:A1,IN,0
                     let params = line.substring(5).split(",");
                     let id = params[0];
                     if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[2], params[3], params[4]]);
@@ -424,7 +361,7 @@
             let valStr = str.substring(splitIdx + 1);
 
             let cardData = activeCardTypes[id];
-            if (!cardData) return; // Ignore if card isn't built yet
+            if (!cardData) return; 
             
             advancedData[id] = valStr;
 
@@ -470,10 +407,8 @@
                 btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; 
                 btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
                 
-                db.ref('rooms/' + cloudRoomId).remove(); // Clear old state
-                
-                // Push Initial Layout immediately
-                saveLayoutOrder();
+                db.ref('rooms/' + cloudRoomId).remove(); 
+                saveLayoutOrder(); // Push Layout automatically
                 
                 db.ref('rooms/' + cloudRoomId + '/command').on('child_added', (snap) => {
                     const cmdData = snap.val();
@@ -492,7 +427,6 @@
 
         function syncCloud() {
             const payload = [];
-            // We ONLY sync cards that are currently in the grid
             Array.from(gridEl.children).forEach(cardDom => {
                 let id = cardDom.id.replace('card-', '');
                 let info = activeCardTypes[id];
