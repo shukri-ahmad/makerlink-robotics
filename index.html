@@ -28,13 +28,17 @@
         body:not(.is-editing) .share-toggle-container { pointer-events: none; opacity: 0.2; filter: grayscale(100%); transition: all 0.3s; }
         
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
+        
+        /* Custom scrollbar for terminal */
+        #terminal-output::-webkit-scrollbar { width: 6px; }
+        #terminal-output::-webkit-scrollbar-track { background: #0f172a; }
+        #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
 
     <div id="msg-box" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-xl shadow-2xl z-50 opacity-0 pointer-events-none font-bold text-center border-2 border-red-400">Message</div>
 
-    <!-- Header with Main Logo Only -->
     <header class="flex flex-col xl:flex-row justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 mb-6 gap-6 xl:gap-0 shrink-0">
         <div class="flex items-center gap-4">
             <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-14 md:h-16 object-contain rounded-lg shadow-md mix-blend-screen">
@@ -51,8 +55,19 @@
         </div>
     </header>
 
-    <!-- Main Content Area -->
     <div id="content-adv" class="flex flex-col gap-8 flex-1 pb-20">
+        
+        <!-- NEW: Terminal Box -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg flex flex-col mb-2">
+            <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-xl">
+                <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">💻 System Terminal</h3>
+                <button onclick="document.getElementById('terminal-output').innerHTML='<div class=\'text-slate-600 italic\'>Logs cleared.</div>'" class="text-[10px] font-bold bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-slate-300 transition-colors shadow-inner">CLEAR</button>
+            </div>
+            <div id="terminal-output" class="p-3 h-32 overflow-y-auto font-mono text-xs text-emerald-400 space-y-1 bg-[#0a0f18] rounded-b-xl break-words shadow-inner">
+                <div class="text-slate-600 italic">Waiting for logs...</div>
+            </div>
+        </div>
+
         <div>
             <h3 class="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">🔌 ANALOG PINS (P0-P2)</h3>
             <div id="grid-analog" class="flex flex-wrap gap-4 items-start"></div>
@@ -114,6 +129,31 @@
             box.innerText = msg;
             box.classList.remove('opacity-0', 'pointer-events-none'); box.classList.add('opacity-100');
             setTimeout(() => { box.classList.remove('opacity-100'); box.classList.add('opacity-0', 'pointer-events-none'); }, 4000);
+        }
+
+        // --- NEW HELPER: Escape HTML to prevent code injection from micro:bit ---
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+        }
+
+        // --- NEW HELPER: Append logs to terminal ---
+        function appendTerminal(msg) {
+            const term = document.getElementById('terminal-output');
+            if (term.innerHTML.includes("Waiting for logs...")) term.innerHTML = '';
+            
+            const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const line = document.createElement('div');
+            
+            // Highlight error messages if they contain "error" or "fail"
+            let colorClass = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-400';
+            
+            line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass}">${escapeHTML(msg)}</span>`;
+            term.appendChild(line);
+            term.scrollTop = term.scrollHeight;
+
+            if (isCloudActive && cloudRoomId) {
+                db.ref('rooms/' + cloudRoomId + '/logs').push({ time: time, msg: msg, color: colorClass }).catch(e => console.error(e));
+            }
         }
 
         function toggleEditMode() {
@@ -209,7 +249,6 @@
                 btnIn.classList.replace('bg-blue-600', 'text-slate-500'); btnIn.classList.remove('text-white');
                 viewIn.classList.add('hidden'); viewOut.classList.remove('hidden');
                 sendBluetoothCommand(`${pin}:0`);
-                // Reset sliders for analog pins only
                 let slider = document.getElementById(`slider-${pin}`);
                 if(slider) { slider.value = 0; document.getElementById(`val-out-${pin}`).innerText = "0"; }
             }
@@ -369,27 +408,38 @@
                 const btn = document.getElementById("btnConnect");
                 btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
 
-                setTimeout(() => { sendBluetoothCommand('SYNC'); }, 300);
+                setTimeout(() => { sendBluetoothCommand('SYNC'); appendTerminal("Bluetooth successfully connected."); }, 300);
 
                 bluetoothDevice.addEventListener('gattserverdisconnected', () => {
                     const btn = document.getElementById("btnConnect");
                     btn.innerHTML = "🔌 Connect"; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-500", "hover:bg-blue-500");
                     showMsg("Micro:bit disconnected!");
+                    appendTerminal("Error: Bluetooth connection lost.");
                 });
             } catch (error) { showMsg("Connection failed or cancelled. Check console (F12) for details."); }
         }
 
+        // --- ENHANCED: Safely intercepts multi-line logs and telemetry buffers ---
         function handleIncomingData(event) {
             let value = new TextDecoder().decode(event.target.value);
-            rxBuffer += value; let lines = rxBuffer.split('\n');
-            if(lines.length > 1) { parseTelemetry(lines[0].trim()); rxBuffer = lines.slice(1).join('\n'); }
+            rxBuffer += value; 
+            
+            let lines = rxBuffer.split('\n');
+            while(lines.length > 1) { 
+                let line = lines.shift().trim();
+                
+                if (line.startsWith("LOG:")) {
+                    appendTerminal(line.substring(4));
+                } else if (line !== "") {
+                    parseTelemetry(line);
+                }
+            }
+            rxBuffer = lines[0]; // Keep remaining incomplete chunk for next payload
         }
 
-        // --- NEW HELPER: Handles the visual button-like styling for Digital Pins ---
         function updateDigitalUI(id, val) {
             advancedData[id] = val;
             
-            // 1. Update the Input View (Button-like pill)
             let valIn = document.getElementById(`val-${id}`);
             if(valIn) {
                 valIn.innerText = val === 1 ? 'HIGH' : 'LOW';
@@ -400,7 +450,6 @@
                 }
             }
             
-            // 2. Update the Output View (Indicator LED)
             let valOut = document.getElementById(`val-out-${id}`);
             if(valOut) {
                 if (val === 1) {
@@ -422,18 +471,12 @@
                 }
             });
 
-            // Uses the new visual updater
             ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach(pin => {
-                if(data[pin] !== undefined) {
-                    updateDigitalUI(pin, data[pin]);
-                }
+                if(data[pin] !== undefined) { updateDigitalUI(pin, data[pin]); }
             });
 
-            // Catch Motor and Servo updates
             ['M1', 'M2', 'M3', 'M4', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'].forEach(id => {
-                if(data[id] !== undefined) {
-                    updateHostUIFromCommand(`${id}:${data[id]}`);
-                }
+                if(data[id] !== undefined) { updateHostUIFromCommand(`${id}:${data[id]}`); }
             });
         }
 
@@ -444,14 +487,15 @@
                 if(bluetoothDevice && bluetoothDevice.gatt.connected) { bluetoothDevice.gatt.disconnect(); }
                 btn.className = "bg-green-400 text-green-950 font-bold py-2 px-4 rounded-lg transition-colors border-2 border-green-300 shadow-[0_0_15px_rgba(74,222,128,0.5)] min-w-[130px]";
                 btn.innerText = "🛑 Stop Sim"; simInterval = setInterval(runSim, 1000);
+                appendTerminal("Simulation Mode Activated");
             } else {
                 btn.className = "bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg";
                 btn.innerText = "🧪 Sim Mode"; clearInterval(simInterval);
+                appendTerminal("Simulation Mode Deactivated");
             }
         }
         
         function runSim() {
-            // Provide random values to active inputs for visual testing
             ['P0', 'P1', 'P2'].forEach(pin => {
                 if (document.getElementById(`view-in-${pin}`) && !document.getElementById(`view-in-${pin}`).classList.contains('hidden')) {
                     parseTelemetry(`${pin}:${Math.floor(Math.random() * 1023)}`);
@@ -467,6 +511,7 @@
                 btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
                 
                 db.ref('rooms/' + cloudRoomId + '/command').remove();
+                db.ref('rooms/' + cloudRoomId + '/logs').remove(); // Clean state
                 
                 db.ref('rooms/' + cloudRoomId + '/command').on('value', (snap) => {
                     const data = snap.val();
@@ -477,6 +522,7 @@
                 });
 
                 cloudInterval = setInterval(syncCloud, 400); 
+                appendTerminal(`Cloud stream active. Room ID: ${cloudRoomId}`);
             } else {
                 btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 clearInterval(cloudInterval);
@@ -484,6 +530,7 @@
                     db.ref('rooms/' + cloudRoomId).remove();
                     db.ref('rooms/' + cloudRoomId + '/command').off();
                 }
+                appendTerminal("Cloud stream closed.");
             }
         }
 
@@ -506,13 +553,11 @@
             } else if (id.startsWith('P')) {
                 const pinNum = parseInt(id.substring(1));
                 if (pinNum <= 2) {
-                    // Analog slider
                     const slider = document.getElementById(`slider-${id}`);
                     if(slider) slider.value = val;
                     const valOutEl = document.getElementById(`val-out-${id}`);
                     if(valOutEl) valOutEl.innerText = val;
                 } else {
-                    // Digital button/indicator updates
                     updateDigitalUI(id, val);
                 }
             }
@@ -554,8 +599,7 @@
                     payload.push(cardData);
                 }
             }
-            db.ref('rooms/' + cloudRoomId + '/state').set(payload)
-                .catch((error) => console.error("Firebase Error:", error));
+            db.ref('rooms/' + cloudRoomId + '/state').set(payload).catch((e) => console.error(e));
         }
     </script>
 </body>
