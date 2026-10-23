@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MakerLink Robotics</title>
+    <title>MakerLink Host</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add SortableJS for smooth drag and drop -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -24,15 +26,23 @@
         
         body.is-editing .ui-editable { border-bottom: 1px dashed #facc15; border-radius: 0; transition: border 0.2s; cursor: text !important; }
         body:not(.is-editing) .ui-editable { border-bottom: 1px solid transparent; }
-        body:not(.is-editing) .ui-editable-btn { pointer-events: none; }
-        body:not(.is-editing) .share-toggle-container { pointer-events: none; opacity: 0.2; filter: grayscale(100%); transition: all 0.3s; }
         
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
-        
-        /* Custom scrollbar for terminal */
         #terminal-output::-webkit-scrollbar { width: 6px; }
         #terminal-output::-webkit-scrollbar-track { background: #0f172a; }
         #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        /* The Uniform Card Class */
+        .maker-card {
+            width: 280px;
+            height: 340px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            cursor: grab;
+        }
+        .maker-card:active { cursor: grabbing; }
+        .sortable-ghost { opacity: 0.4; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
@@ -43,53 +53,36 @@
         <div class="flex items-center gap-4">
             <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-14 md:h-16 object-contain rounded-lg shadow-md mix-blend-screen">
             <div class="flex flex-col justify-center">
-                <h1 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 leading-tight">MakerLink Robotics</h1>
-                <p class="text-emerald-400 text-sm font-bold tracking-wide mt-1">Simplifying cyber-physical prototyping for makers</p>
+                <h1 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 leading-tight">MakerLink Host</h1>
+                <p class="text-emerald-400 text-sm font-bold tracking-wide mt-1">Simplifying cyber-physical prototyping</p>
             </div>
         </div>
         <div class="flex flex-wrap gap-3 justify-center">
             <button id="btnConnect" onclick="connectBluetooth()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-lg">🔌 Connect</button>
-            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">🔒 Lock UI</button>
+            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">🔒 Lock Titles</button>
             <button id="btn-cloud" onclick="toggleCloud()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">☁️ Go Public</button>
-            <button id="btn-sim" onclick="toggleSim()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg">🧪 Sim Mode</button>
+            <button id="btn-clear" onclick="clearDashboard()" class="bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg">🗑️ Clear</button>
         </div>
     </header>
 
-    <div id="content-adv" class="flex flex-col gap-8 flex-1 pb-20">
+    <div class="flex flex-col gap-8 flex-1 pb-20">
         
-        <!-- NEW: Terminal Box -->
+        <!-- Terminal Box -->
         <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg flex flex-col mb-2">
             <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-xl">
                 <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">💻 System Terminal</h3>
                 <button onclick="document.getElementById('terminal-output').innerHTML='<div class=\'text-slate-600 italic\'>Logs cleared.</div>'" class="text-[10px] font-bold bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-slate-300 transition-colors shadow-inner">CLEAR</button>
             </div>
             <div id="terminal-output" class="p-3 h-32 overflow-y-auto font-mono text-xs text-emerald-400 space-y-1 bg-[#0a0f18] rounded-b-xl break-words shadow-inner">
-                <div class="text-slate-600 italic">Waiting for logs...</div>
+                <div class="text-slate-600 italic">Waiting for micro:bit SYNC...</div>
             </div>
         </div>
 
-        <div>
-            <h3 class="text-xl font-bold text-purple-400 mb-4 flex items-center gap-2">🔌 ANALOG PINS (P0-P2)</h3>
-            <div id="grid-analog" class="flex flex-wrap gap-4 items-start"></div>
+        <!-- The Single Dynamic Playing Card Grid -->
+        <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start">
+            <!-- Cards will be injected here via micro:bit INIT commands -->
         </div>
-        <div>
-            <h3 class="text-xl font-bold text-emerald-400 mb-4 flex items-center gap-2">🔌 DIGITAL PINS (P9-P16)</h3>
-            <div id="grid-digital" class="flex flex-wrap gap-3 items-start"></div>
-        </div>
-        <div>
-            <h3 class="text-xl font-bold text-orange-400 mb-4 flex items-center gap-2">⚙️ DC MOTORS (M1-M4)</h3>
-            <div id="grid-motors" class="flex flex-wrap gap-4 items-start"></div>
-        </div>
-        <div>
-            <h3 class="text-xl font-bold text-blue-400 mb-4 flex items-center gap-2">🦾 SERVOS (S1-S8)</h3>
-            <div id="grid-servos" class="flex flex-wrap gap-4 items-start"></div>
-        </div>
-    </div>
 
-    <!-- Floating Powered By Badge -->
-    <div class="fixed bottom-4 right-4 flex flex-col items-end z-40 pointer-events-none opacity-80 drop-shadow-xl">
-        <span class="text-[10px] font-bold text-slate-400 tracking-wider mb-1">POWERED BY</span>
-        <img src="Logo MAKERSPACE (3)-Photoroom.jpg" alt="Makerspace UTHM" class="h-8 sm:h-10 object-contain mix-blend-screen">
     </div>
 
     <script>
@@ -98,21 +91,18 @@
             authDomain: "makerlink-b575b.firebaseapp.com",
             databaseURL: "https://makerlink-b575b-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "makerlink-b575b",
-            storageBucket: "makerlink-b575b.firebasestorage.app",
-            messagingSenderId: "982732228897",
-            appId: "1:982732228897:web:2d01c60fa79bf6dca61660"
+            storageBucket: "makerlink-b575b.firebasestorage.app"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let isSimActive = false, simInterval = null;
         let isCloudActive = false, cloudRoomId = null, cloudInterval = null;
         let isEditMode = false;
         
         const advancedData = {};
-        const toggleStates = {}; 
         const sensorCharts = {};
         const maxDataPoints = {};
+        let activeCardTypes = {}; 
 
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
@@ -122,7 +112,33 @@
         let commandQueue = [];
         let isTransmitting = false;
 
-        window.onload = () => { generateAdvancedCards(); };
+        // --- SORTABLE JS (DRAG AND DROP) ---
+        const gridEl = document.getElementById('dashboard-grid');
+        const sortable = new Sortable(gridEl, {
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                saveLayoutOrder();
+            }
+        });
+
+        function saveLayoutOrder() {
+            const order = Array.from(gridEl.children).map(c => c.id.replace('card-', ''));
+            localStorage.setItem('makerlink_layout', JSON.stringify(order));
+            
+            // Instantly sync the layout change to the Public viewers
+            if (isCloudActive && cloudRoomId) {
+                db.ref('rooms/' + cloudRoomId + '/layout').set(order);
+            }
+        }
+
+        function applySavedLayout() {
+            const saved = JSON.parse(localStorage.getItem('makerlink_layout') || '[]');
+            saved.forEach(id => {
+                const card = document.getElementById(`card-${id}`);
+                if (card) { gridEl.appendChild(card); } // Appending moves it to the correct sorted spot
+            });
+        }
 
         function showMsg(msg) {
             const box = document.getElementById('msg-box');
@@ -131,28 +147,21 @@
             setTimeout(() => { box.classList.remove('opacity-100'); box.classList.add('opacity-0', 'pointer-events-none'); }, 4000);
         }
 
-        // --- NEW HELPER: Escape HTML to prevent code injection from micro:bit ---
-        function escapeHTML(str) {
-            return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
-        }
+        function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
 
-        // --- NEW HELPER: Append logs to terminal ---
         function appendTerminal(msg) {
             const term = document.getElementById('terminal-output');
-            if (term.innerHTML.includes("Waiting for logs...")) term.innerHTML = '';
+            if (term.innerHTML.includes("Waiting for micro:bit SYNC...")) term.innerHTML = '';
             
             const time = new Date().toLocaleTimeString('en-US', { hour12: false });
             const line = document.createElement('div');
-            
-            // Highlight error messages if they contain "error" or "fail"
             let colorClass = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-400';
-            
             line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass}">${escapeHTML(msg)}</span>`;
             term.appendChild(line);
             term.scrollTop = term.scrollHeight;
 
             if (isCloudActive && cloudRoomId) {
-                db.ref('rooms/' + cloudRoomId + '/logs').push({ time: time, msg: msg, color: colorClass }).catch(e => console.error(e));
+                db.ref('rooms/' + cloudRoomId + '/logs').push({ time: time, msg: msg, color: colorClass });
             }
         }
 
@@ -161,178 +170,129 @@
             const btn = document.getElementById('btn-edit');
             if (isEditMode) {
                 document.body.classList.add('is-editing');
-                btn.innerHTML = "🔓 Editing UI";
+                btn.innerHTML = "🔓 Editing Titles";
                 btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
                 document.querySelectorAll('.ui-editable').forEach(el => el.removeAttribute('readonly'));
             } else {
                 document.body.classList.remove('is-editing');
-                btn.innerHTML = "🔒 Lock UI";
+                btn.innerHTML = "🔒 Lock Titles";
                 btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 document.querySelectorAll('.ui-editable').forEach(el => el.setAttribute('readonly', true));
             }
         }
 
-        function toggleCardShare(id, isShared) {
-            toggleStates[id] = isShared;
-            const card = document.querySelector(`[data-card="${id}"]`);
-            const body = document.getElementById(`body-${id}`);
-            const headerControls = document.getElementById(`header-controls-${id}`);
-            const titleInput = document.getElementById(`title-${id}`);
+        function clearDashboard() {
+            gridEl.innerHTML = '';
+            activeCardTypes = {};
+            localStorage.removeItem('makerlink_layout');
+            appendTerminal("Dashboard cleared manually.");
+        }
+
+        // --- UNIFORM PLAYING CARD BUILDERS ---
+
+        function createPlayingCard(id, type, mode, startVals) {
+            if(document.getElementById(`card-${id}`)) return; // Don't duplicate
+
+            activeCardTypes[id] = { type: type, mode: mode };
+            advancedData[id] = startVals ? startVals[0] : 0;
+            if(type === 'analog') maxDataPoints[id] = 20;
+
+            const card = document.createElement('div');
+            card.className = "maker-card bg-slate-800 rounded-xl border border-slate-700 shadow-lg hover:border-slate-500/50 transition-colors";
+            card.id = `card-${id}`;
+
+            let colorClass = type === 'analog' ? 'text-purple-400' : type === 'digital' ? 'text-emerald-400' : type === 'motor' ? 'text-orange-400' : type === 'text' ? 'text-pink-400' : 'text-blue-400';
+            let iconStr = type === 'analog' ? '📊' : type === 'digital' ? '🚥' : type === 'motor' ? '⚙️' : type === 'text' ? '📝' : '🦾';
+
+            // Top Header
+            let html = `
+                <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center rounded-t-xl">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-sm ${colorClass}">${id}</span>
+                        <span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span>
+                    </div>
+                </div>
+            `;
+
+            // Middle Content Area
+            html += `<div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">`;
+
+            if (type === 'analog' && mode === 'IN') {
+                html += `
+                    <div id="val-${id}" class="text-4xl font-mono ${colorClass} font-bold mb-2">0</div>
+                    <div class="w-full flex-1 bg-slate-900 rounded-lg p-1 border border-slate-700 min-h-[100px] mb-2"><canvas id="chart-${id}"></canvas></div>
+                    <div class="flex gap-2 w-full mt-auto">
+                        <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="0" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
+                        <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="1023" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
+                        <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="20" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
+                    </div>`;
+            } 
+            else if (type === 'analog' && mode === 'OUT') {
+                html += `
+                    <div id="val-out-${id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">${startVals[0]}</div>
+                    <input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto">
+                    <div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
+            } 
+            else if (type === 'digital' && mode === 'IN') {
+                html += `<div id="val-${id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[4px] border-slate-800">LOW</div>`;
+            } 
+            else if (type === 'digital' && mode === 'OUT') {
+                html += `
+                    <div id="val-out-${id}" class="w-12 h-12 mb-6 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[3px] border-red-800"></div>
+                    <div class="flex justify-between gap-3 w-full mt-auto">
+                        <button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-red-700 transition-all border border-red-700">OFF</button>
+                        <button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-4 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-green-700 transition-all border border-green-700">ON</button>
+                    </div>`;
+            } 
+            else if (type === 'text') {
+                html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-2xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
+            }
+            else if (type === 'motor') {
+                html += `
+                    <div id="val-${id}" class="text-xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-3 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
+                    <div class="flex gap-2 w-full mb-6">
+                        <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPEED</label><input type="number" id="ccw-spd-${id}" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 shadow-inner"></div>
+                        <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPEED</label><input type="number" id="cw-spd-${id}" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 shadow-inner"></div>
+                    </div>
+                    <div class="flex gap-2 w-full mt-auto">
+                        <button onclick="setMotor('${id}', 'ccw')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer">⏪ CCW</button>
+                        <button onclick="setMotor('${id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-red-700/50 cursor-pointer">⏹️ STOP</button>
+                        <button onclick="setMotor('${id}', 'cw')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold py-3 rounded-lg shadow-lg transition-colors border border-green-700/50 cursor-pointer">CW ⏩</button>
+                    </div>`;
+            } 
+            else if (type === 'servo') {
+                html += `
+                    <div id="val-${id}" class="text-4xl font-mono text-blue-400 font-bold mb-6">${startVals[0]}°</div>
+                    <input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0]}" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-6 mt-auto">
+                    <div class="flex gap-3 w-full">
+                        <div class="flex-1 flex flex-col gap-2">
+                            <input type="number" id="pos1-val-${id}" value="${startVals[1]}" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner">
+                            <button onclick="setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg border border-blue-700/50">Pos 1</button>
+                        </div>
+                        <div class="flex-1 flex flex-col gap-2">
+                            <input type="number" id="pos2-val-${id}" value="${startVals[2]}" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner">
+                            <button onclick="setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg border border-blue-700/50">Pos 2</button>
+                        </div>
+                    </div>`;
+            }
+
+            html += `</div>`; // Close Middle Content
+
+            // Bottom Label Section
+            html += `
+                <div class="p-2 bg-slate-900 border-t border-slate-700 rounded-b-xl flex justify-center">
+                    <input type="text" id="title-${id}" value="Custom Label" readonly class="ui-editable font-bold text-xs text-slate-400 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-full text-center placeholder-slate-500 cursor-default" placeholder="Name this card...">
+                </div>
+            `;
+
+            card.innerHTML = html;
+            gridEl.appendChild(card);
             
-            if (card) {
-                if (isShared) {
-                    card.classList.remove('opacity-50', 'grayscale', 'w-fit');
-                    card.classList.add('w-full', 'sm:w-[320px]');
-                    if (body) body.classList.remove('hidden');
-                    if (headerControls) headerControls.classList.remove('hidden');
-                    if (titleInput) { titleInput.classList.remove('w-12'); titleInput.classList.add(id.startsWith('M') || id.startsWith('S') ? 'w-24' : 'w-16'); }
-                } else {
-                    card.classList.add('opacity-50', 'grayscale', 'w-fit');
-                    card.classList.remove('w-full', 'sm:w-[320px]');
-                    if (body) body.classList.add('hidden');
-                    if (headerControls) headerControls.classList.add('hidden');
-                    if (titleInput) { titleInput.classList.remove('w-16', 'w-24'); titleInput.classList.add('w-12'); }
-                }
-            }
-        }
+            if (type === 'analog' && mode === 'IN') initSensorChart(id);
 
-        function createShareToggleHTML(id) {
-            return `
-                <label class="share-toggle-container relative inline-flex items-center cursor-pointer mr-2 shrink-0" title="Share ${id} to Public View">
-                    <input type="checkbox" id="share-${id}" onchange="toggleCardShare('${id}', this.checked)" class="sr-only peer" checked>
-                    <div class="w-7 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-300 after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500"></div>
-                </label>
-            `;
-        }
-
-        function generateAdvancedCards() {
-            const gridAnalog = document.getElementById('grid-analog');
-            const gridDigital = document.getElementById('grid-digital');
-            
-            ['P0', 'P1', 'P2'].forEach(pin => {
-                gridAnalog.innerHTML += createPinCardHTML(pin, true, 'text-purple-400');
-                advancedData[pin] = 0; toggleStates[pin] = true; maxDataPoints[pin] = 20;
-            });
-            ['P0', 'P1', 'P2'].forEach(pin => initSensorChart(pin));
-
-            ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach(pin => {
-                gridDigital.innerHTML += createPinCardHTML(pin, false, 'text-emerald-400');
-                advancedData[pin] = 0; toggleStates[pin] = true; maxDataPoints[pin] = 20;
-            });
-
-            const gridMotors = document.getElementById('grid-motors');
-            for(let i=1; i<=4; i++) {
-                gridMotors.innerHTML += createMotorCardHTML(`M${i}`);
-                advancedData[`M${i}`] = 0; toggleStates[`M${i}`] = true;
-            }
-
-            const gridServos = document.getElementById('grid-servos');
-            for(let i=1; i<=8; i++) {
-                gridServos.innerHTML += createServoCardHTML(`S${i}`);
-                advancedData[`S${i}`] = 90; toggleStates[`S${i}`] = true;
-            }
-        }
-
-        function setPinMode(pin, mode) {
-            const btnIn = document.getElementById(`btn-in-${pin}`);
-            const btnOut = document.getElementById(`btn-out-${pin}`);
-            const viewIn = document.getElementById(`view-in-${pin}`);
-            const viewOut = document.getElementById(`view-out-${pin}`);
-
-            if (mode === 'IN') {
-                btnIn.classList.replace('text-slate-500', 'bg-blue-600'); btnIn.classList.add('text-white');
-                btnOut.classList.replace('bg-emerald-600', 'text-slate-500'); btnOut.classList.remove('text-white');
-                viewIn.classList.remove('hidden'); viewOut.classList.add('hidden');
-                sendBluetoothCommand(`${pin}:IN`);
-            } else {
-                btnOut.classList.replace('text-slate-500', 'bg-emerald-600'); btnOut.classList.add('text-white');
-                btnIn.classList.replace('bg-blue-600', 'text-slate-500'); btnIn.classList.remove('text-white');
-                viewIn.classList.add('hidden'); viewOut.classList.remove('hidden');
-                sendBluetoothCommand(`${pin}:0`);
-                let slider = document.getElementById(`slider-${pin}`);
-                if(slider) { slider.value = 0; document.getElementById(`val-out-${pin}`).innerText = "0"; }
-            }
-        }
-
-        function createPinCardHTML(id, isAnalog, colorClass) {
-            let inView = ''; let outControls = '';
-            if (isAnalog) {
-                inView = `<div id="view-in-${id}" class="flex flex-col items-center w-full gap-2 transition-all"><div class="flex items-baseline justify-center gap-2"><div id="val-${id}" class="text-3xl font-mono ${colorClass} font-bold">0</div></div><div class="w-full h-24 bg-slate-900 rounded-lg p-1 border border-slate-700"><canvas id="chart-${id}"></canvas></div><div class="flex gap-2 w-full mt-1"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Min</label><input type="number" id="ymin-${id}" value="0" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">Y Max</label><input type="number" id="ymax-${id}" value="1023" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-500 text-center font-bold">X Pts</label><input type="number" id="xmax-${id}" value="20" onchange="updateSensorChartConfig('${id}')" class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 outline-none focus:border-emerald-500"></div></div></div>`;
-                outControls = `<div class="w-full flex flex-col items-center mt-2"><div id="val-out-${id}" class="text-3xl font-mono ${colorClass} font-bold mb-4">0</div><input type="range" id="slider-${id}" min="0" max="1023" value="0" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full"><div class="flex justify-between w-full text-xs text-slate-500 mt-2 font-mono"><span>0 (0V)</span><span>1023 (3V)</span></div></div>`;
-            } else {
-                inView = `<div id="view-in-${id}" class="flex flex-col items-center justify-center w-full min-h-[90px] transition-all"><div id="val-${id}" class="w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[3px] border-slate-800">LOW</div></div>`;
-                outControls = `<div class="w-full h-full flex flex-col justify-center items-center min-h-[90px]"><div id="val-out-${id}" class="w-8 h-8 mb-3 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[2px] border-red-800"></div><div class="flex justify-between gap-2 w-full"><button onclick="sendBluetoothCommand('${id}:0')" class="flex-1 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg active:bg-red-700 transition-all border border-red-700">OFF (0)</button><button onclick="sendBluetoothCommand('${id}:1')" class="flex-1 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-sm shadow-lg active:bg-green-700 transition-all border border-green-700">ON (1)</button></div></div>`;
-            }
-
-            return `
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50 w-full sm:w-[320px] shrink-0" data-card="${id}">
-                    <div class="p-2 bg-slate-900 border-b border-slate-700 flex justify-between items-center whitespace-nowrap">
-                        <div class="flex items-center">
-                            ${createShareToggleHTML(id)}
-                            <span class="font-bold text-sm ${colorClass} ml-1">${id}</span>
-                            <div id="header-controls-${id}" class="flex bg-slate-800 rounded border border-slate-700 p-[2px] ml-2 cursor-pointer transition-opacity">
-                                <button id="btn-in-${id}" onclick="setPinMode('${id}', 'IN')" class="px-1.5 py-0.5 text-[9px] rounded bg-blue-600 text-white font-bold transition-colors">IN</button>
-                                <button id="btn-out-${id}" onclick="setPinMode('${id}', 'OUT')" class="px-1.5 py-0.5 text-[9px] rounded text-slate-500 font-bold transition-colors">OUT</button>
-                            </div>
-                        </div>
-                        <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-xs text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-16 text-right placeholder-slate-500" placeholder="Label...">
-                    </div>
-                    <div id="body-${id}" class="p-3 flex-1 flex flex-col justify-center bg-slate-800">${inView}<div id="view-out-${id}" class="hidden flex flex-col items-center justify-center w-full h-full transition-all">${outControls}</div></div>
-                </div>
-            `;
-        }
-
-        function createMotorCardHTML(id) {
-            return `
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50 w-full sm:w-[320px] shrink-0" data-card="${id}">
-                    <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center whitespace-nowrap">
-                        <div class="flex items-center">${createShareToggleHTML(id)}<span class="font-bold text-sm text-orange-400 ml-1">${id}</span></div>
-                        <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
-                    </div>
-                    <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
-                        <div class="w-full flex flex-col items-center">
-                            <div id="val-${id}" class="text-lg font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
-                            <div class="flex gap-2 w-full mb-4">
-                                <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPEED</label><input type="number" id="ccw-spd-${id}" min="0" max="255" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 focus:outline-none focus:border-orange-500 shadow-inner"></div>
-                                <div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPEED</label><input type="number" id="cw-spd-${id}" min="0" max="255" value="255" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-orange-400 focus:outline-none focus:border-orange-500 shadow-inner"></div>
-                            </div>
-                            <div class="flex gap-2 w-full">
-                                <div onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="⏪ CCW" readonly class="bg-transparent text-center w-full outline-none"></div>
-                                <div onclick="if(!isEditMode) setMotor('${id}', 'stop')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-red-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="⏹️ STOP" readonly class="bg-transparent text-center w-full outline-none"></div>
-                                <div onclick="if(!isEditMode) setMotor('${id}', 'cw')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 rounded-lg shadow-lg transition-colors border border-green-700/50 cursor-pointer flex items-center justify-center"><input type="text" value="CW ⏩" readonly class="bg-transparent text-center w-full outline-none"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function createServoCardHTML(id) {
-            return `
-                <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden flex flex-col transition-all duration-300 shadow-lg hover:border-slate-500/50 w-full sm:w-[320px] shrink-0" data-card="${id}">
-                    <div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center whitespace-nowrap">
-                        <div class="flex items-center">${createShareToggleHTML(id)}<span class="font-bold text-sm text-blue-400 ml-1">${id}</span></div>
-                        <input type="text" id="title-${id}" value="${id}" readonly class="ui-editable ui-editable-title font-bold text-sm text-slate-300 ml-1 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-24 text-right placeholder-slate-500" placeholder="Name...">
-                    </div>
-                    <div id="body-${id}" class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800">
-                        <div class="w-full flex flex-col items-center">
-                            <div id="val-${id}" class="text-2xl font-mono text-blue-400 font-bold mb-4">90°</div>
-                            <input type="range" id="slider-${id}" min="0" max="180" value="90" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full">
-                            <div class="flex justify-between w-full text-xs text-slate-500 mt-2 font-mono"><span>0°</span><span>180°</span></div>
-                            <div class="flex gap-2 w-full mt-4">
-                                <div class="flex-1 flex flex-col gap-1">
-                                    <input type="number" id="pos1-val-${id}" min="0" max="180" value="0" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
-                                    <div onclick="if(!isEditMode) setServoPos('${id}', 1)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos1-lbl-${id}" value="Pos 1" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
-                                </div>
-                                <div class="flex-1 flex flex-col gap-1">
-                                    <input type="number" id="pos2-val-${id}" min="0" max="180" value="180" class="w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-blue-400 focus:outline-none focus:border-blue-500 shadow-inner">
-                                    <div onclick="if(!isEditMode) setServoPos('${id}', 2)" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-1.5 rounded-lg shadow-lg transition-colors border border-blue-700/50 cursor-pointer flex items-center justify-center"><input type="text" id="btn-pos2-lbl-${id}" value="Pos 2" readonly onclick="event.stopPropagation()" class="ui-editable ui-editable-btn bg-transparent text-center w-full outline-none focus:bg-blue-800/50 rounded px-1"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            // Once dynamically added, re-apply the saved sort order
+            applySavedLayout();
+            saveLayoutOrder(); // Re-save to include this new card
         }
 
         function initSensorChart(id) {
@@ -375,6 +335,21 @@
             document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`);
         }
 
+        function updateDigitalUI(id, val) {
+            advancedData[id] = val;
+            let valIn = document.getElementById(`val-${id}`);
+            if(valIn) {
+                valIn.innerText = val === 1 ? 'HIGH' : 'LOW';
+                valIn.className = val === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-orange-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.8)] border-[4px] border-orange-400" 
+                                            : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[4px] border-slate-800";
+            }
+            let valOut = document.getElementById(`val-out-${id}`);
+            if(valOut) {
+                valOut.className = val === 1 ? "w-12 h-12 mb-6 rounded-full bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.8)] transition-all duration-300 border-[3px] border-green-400"
+                                             : "w-12 h-12 mb-6 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[3px] border-red-800";
+            }
+        }
+
         async function sendBluetoothCommand(cmd) {
             if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; }
             commandQueue.push(cmd); processCommandQueue();
@@ -392,23 +367,24 @@
         }
 
         async function connectBluetooth() {
-            if(isSimActive) { showMsg("Please turn off Sim Mode before connecting to real hardware."); return; }
-            if (!navigator || !navigator.bluetooth) { showMsg("Web Bluetooth API is missing! Make sure you are using Chrome or Edge, and serving via HTTPS."); return; }
-            
+            if (!navigator || !navigator.bluetooth) { showMsg("Web Bluetooth API is missing! Use Chrome or Edge."); return; }
             try {
                 bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] });
                 bluetoothServer = await bluetoothDevice.gatt.connect();
                 uartService = await bluetoothServer.getPrimaryService(UART_SERVICE_UUID);
                 txCharacteristic = await uartService.getCharacteristic(UART_TX_CHAR_UUID);
                 rxCharacteristic = await uartService.getCharacteristic(UART_RX_CHAR_UUID);
-
                 await rxCharacteristic.startNotifications();
                 rxCharacteristic.addEventListener('characteristicvaluechanged', handleIncomingData);
 
                 const btn = document.getElementById("btnConnect");
                 btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
 
-                setTimeout(() => { sendBluetoothCommand('SYNC'); appendTerminal("Bluetooth successfully connected."); }, 300);
+                // Send SYNC handshake to micro:bit to request UI cards!
+                setTimeout(() => { 
+                    sendBluetoothCommand('SYNC'); 
+                    appendTerminal("Bluetooth connected. Sent SYNC to hardware."); 
+                }, 300);
 
                 bluetoothDevice.addEventListener('gattserverdisconnected', () => {
                     const btn = document.getElementById("btnConnect");
@@ -419,88 +395,72 @@
             } catch (error) { showMsg("Connection failed or cancelled. Check console (F12) for details."); }
         }
 
-        // --- ENHANCED: Safely intercepts multi-line logs and telemetry buffers ---
         function handleIncomingData(event) {
             let value = new TextDecoder().decode(event.target.value);
             rxBuffer += value; 
-            
             let lines = rxBuffer.split('\n');
             while(lines.length > 1) { 
                 let line = lines.shift().trim();
-                
-                if (line.startsWith("LOG:")) {
-                    appendTerminal(line.substring(4));
-                } else if (line !== "") {
-                    parseTelemetry(line);
+                if (line.startsWith("LOG:")) { appendTerminal(line.substring(4)); } 
+                else if (line.startsWith("INIT:")) {
+                    // Spawn a playing card! e.g., INIT:A1,IN,0
+                    let params = line.substring(5).split(",");
+                    let id = params[0];
+                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[2], params[3], params[4]]);
+                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [params[2], params[3], params[4]]);
+                    else if(id.startsWith("T")) createPlayingCard(id, 'text', null, [params[2]]);
+                    else if(id.startsWith("A")) createPlayingCard(id, 'analog', params[1], [params[2]]);
+                    else if(id.startsWith("D")) createPlayingCard(id, 'digital', params[1], [params[2]]);
                 }
+                else if (line !== "") { parseTelemetry(line); }
             }
-            rxBuffer = lines[0]; // Keep remaining incomplete chunk for next payload
-        }
-
-        function updateDigitalUI(id, val) {
-            advancedData[id] = val;
-            
-            let valIn = document.getElementById(`val-${id}`);
-            if(valIn) {
-                valIn.innerText = val === 1 ? 'HIGH' : 'LOW';
-                if (val === 1) {
-                    valIn.className = "w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.6)] border-[3px] border-orange-400";
-                } else {
-                    valIn.className = "w-16 h-16 rounded-full flex items-center justify-center text-lg font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[3px] border-slate-800";
-                }
-            }
-            
-            let valOut = document.getElementById(`val-out-${id}`);
-            if(valOut) {
-                if (val === 1) {
-                    valOut.className = "w-8 h-8 mb-3 rounded-full bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.6)] transition-all duration-300 border-[2px] border-green-400";
-                } else {
-                    valOut.className = "w-8 h-8 mb-3 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[2px] border-red-800";
-                }
-            }
+            rxBuffer = lines[0];
         }
 
         function parseTelemetry(str) {
-            const pairs = str.split(','); const data = {};
-            pairs.forEach(p => { let kv = p.split(':'); if(kv.length === 2) { data[kv[0]] = parseFloat(kv[1]); } });
+            let splitIdx = str.indexOf(':');
+            if(splitIdx === -1) return;
+            let id = str.substring(0, splitIdx);
+            let valStr = str.substring(splitIdx + 1);
 
-            ['P0', 'P1', 'P2'].forEach(pin => {
-                if(data[pin] !== undefined) {
-                    advancedData[pin] = data[pin]; let el = document.getElementById(`val-${pin}`);
-                    if(el && !document.getElementById(`view-in-${pin}`).classList.contains('hidden')) { el.innerText = data[pin]; pushSensorData(pin, data[pin]); }
+            let cardData = activeCardTypes[id];
+            if (!cardData) return; // Ignore if card isn't built yet
+            
+            advancedData[id] = valStr;
+
+            if (cardData.type === 'text') {
+                let el = document.getElementById(`val-${id}`);
+                if(el) el.innerText = valStr;
+            } 
+            else {
+                let val = parseFloat(valStr);
+                if (cardData.type === 'analog' && cardData.mode === 'IN') {
+                    let el = document.getElementById(`val-${id}`);
+                    if(el) { el.innerText = val; pushSensorData(id, val); }
+                } 
+                else if (cardData.type === 'analog' && cardData.mode === 'OUT') {
+                    let el = document.getElementById(`slider-${id}`);
+                    if(el) el.value = val;
+                    let elOut = document.getElementById(`val-out-${id}`);
+                    if(elOut) elOut.innerText = val;
                 }
-            });
-
-            ['P9', 'P12', 'P13', 'P14', 'P15', 'P16'].forEach(pin => {
-                if(data[pin] !== undefined) { updateDigitalUI(pin, data[pin]); }
-            });
-
-            ['M1', 'M2', 'M3', 'M4', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'].forEach(id => {
-                if(data[id] !== undefined) { updateHostUIFromCommand(`${id}:${data[id]}`); }
-            });
-        }
-
-        let tick = 0;
-        function toggleSim() {
-            isSimActive = !isSimActive; const btn = document.getElementById('btn-sim');
-            if (isSimActive) {
-                if(bluetoothDevice && bluetoothDevice.gatt.connected) { bluetoothDevice.gatt.disconnect(); }
-                btn.className = "bg-green-400 text-green-950 font-bold py-2 px-4 rounded-lg transition-colors border-2 border-green-300 shadow-[0_0_15px_rgba(74,222,128,0.5)] min-w-[130px]";
-                btn.innerText = "🛑 Stop Sim"; simInterval = setInterval(runSim, 1000);
-                appendTerminal("Simulation Mode Activated");
-            } else {
-                btn.className = "bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg";
-                btn.innerText = "🧪 Sim Mode"; clearInterval(simInterval);
-                appendTerminal("Simulation Mode Deactivated");
+                else if (cardData.type === 'digital') {
+                    updateDigitalUI(id, val);
+                }
+                else if (cardData.type === 'motor') {
+                    let el = document.getElementById(`val-${id}`);
+                    if (el) {
+                        let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)');
+                        el.innerText = displayStr;
+                    }
+                }
+                else if (cardData.type === 'servo') {
+                    let el = document.getElementById(`slider-${id}`);
+                    if(el) el.value = val;
+                    let valEl = document.getElementById(`val-${id}`);
+                    if(valEl) valEl.innerText = val + '°';
+                }
             }
-        }
-        
-        function runSim() {
-            ['P0', 'P1', 'P2'].forEach(pin => {
-                if (document.getElementById(`view-in-${pin}`) && !document.getElementById(`view-in-${pin}`).classList.contains('hidden')) {
-                    parseTelemetry(`${pin}:${Math.floor(Math.random() * 1023)}`);
-                }
-            });
         }
 
         function toggleCloud() {
@@ -510,15 +470,14 @@
                 btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; 
                 btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
                 
-                db.ref('rooms/' + cloudRoomId + '/command').remove();
-                db.ref('rooms/' + cloudRoomId + '/logs').remove(); // Clean state
+                db.ref('rooms/' + cloudRoomId).remove(); // Clear old state
                 
-                db.ref('rooms/' + cloudRoomId + '/command').on('value', (snap) => {
-                    const data = snap.val();
-                    if(data && data.cmd) {
-                        sendBluetoothCommand(data.cmd);
-                        updateHostUIFromCommand(data.cmd);
-                    }
+                // Push Initial Layout immediately
+                saveLayoutOrder();
+                
+                db.ref('rooms/' + cloudRoomId + '/command').on('child_added', (snap) => {
+                    const cmdData = snap.val();
+                    if(cmdData && cmdData.cmd) { sendBluetoothCommand(cmdData.cmd); parseTelemetry(cmdData.cmd); }
                 });
 
                 cloudInterval = setInterval(syncCloud, 400); 
@@ -526,79 +485,27 @@
             } else {
                 btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 clearInterval(cloudInterval);
-                if(cloudRoomId) {
-                    db.ref('rooms/' + cloudRoomId).remove();
-                    db.ref('rooms/' + cloudRoomId + '/command').off();
-                }
+                if(cloudRoomId) { db.ref('rooms/' + cloudRoomId).remove(); }
                 appendTerminal("Cloud stream closed.");
-            }
-        }
-
-        function updateHostUIFromCommand(cmdString) {
-            const parts = cmdString.split(":");
-            if(parts.length < 2) return;
-            const id = parts[0]; const val = parseInt(parts[1]);
-            
-            advancedData[id] = val;
-            
-            if (id.startsWith('S')) {
-                const slider = document.getElementById(`slider-${id}`);
-                if(slider) slider.value = val;
-                const valEl = document.getElementById(`val-${id}`);
-                if(valEl) valEl.innerText = val + '°';
-            } else if (id.startsWith('M')) {
-                let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)');
-                const valEl = document.getElementById(`val-${id}`);
-                if(valEl) valEl.innerText = displayStr;
-            } else if (id.startsWith('P')) {
-                const pinNum = parseInt(id.substring(1));
-                if (pinNum <= 2) {
-                    const slider = document.getElementById(`slider-${id}`);
-                    if(slider) slider.value = val;
-                    const valOutEl = document.getElementById(`val-out-${id}`);
-                    if(valOutEl) valOutEl.innerText = val;
-                } else {
-                    updateDigitalUI(id, val);
-                }
             }
         }
 
         function syncCloud() {
             const payload = [];
-            for (const id in toggleStates) {
-                if (toggleStates[id]) { 
-                    let type = '';
-                    if (id.startsWith('P')) { const pinNum = parseInt(id.substring(1)); type = (pinNum <= 2) ? 'analog' : 'digital'; } 
-                    else if (id.startsWith('M')) { type = 'motor'; } 
-                    else if (id.startsWith('S')) { type = 'servo'; }
-
-                    let mode = null;
-                    if (type === 'analog' || type === 'digital') {
-                        const viewIn = document.getElementById(`view-in-${id}`);
-                        mode = (viewIn && viewIn.classList.contains('hidden')) ? 'OUT' : 'IN';
+            // We ONLY sync cards that are currently in the grid
+            Array.from(gridEl.children).forEach(cardDom => {
+                let id = cardDom.id.replace('card-', '');
+                let info = activeCardTypes[id];
+                if(info) {
+                    let titleInput = document.getElementById(`title-${id}`);
+                    let cardData = { id: id, type: info.type, mode: info.mode, val: advancedData[id], label: titleInput ? titleInput.value : "Label" };
+                    if (info.type === 'servo') {
+                        cardData.pos1Val = document.getElementById(`pos1-val-${id}`)?.value || 0;
+                        cardData.pos2Val = document.getElementById(`pos2-val-${id}`)?.value || 180;
                     }
-
-                    const titleInput = document.getElementById(`title-${id}`);
-                    const label = titleInput ? titleInput.value : id;
-                    const val = advancedData[id] !== undefined ? advancedData[id] : 0;
-
-                    let cardData = { id: id, type: type, mode: mode, val: val, label: label };
-                    
-                    if (type === 'servo') {
-                        const p1Val = document.getElementById(`pos1-val-${id}`);
-                        const p1Lbl = document.getElementById(`btn-pos1-lbl-${id}`);
-                        const p2Val = document.getElementById(`pos2-val-${id}`);
-                        const p2Lbl = document.getElementById(`btn-pos2-lbl-${id}`);
-                        
-                        cardData.pos1Val = p1Val ? p1Val.value : 0;
-                        cardData.pos1Lbl = p1Lbl ? p1Lbl.value : 'Pos 1';
-                        cardData.pos2Val = p2Val ? p2Val.value : 180;
-                        cardData.pos2Lbl = p2Lbl ? p2Lbl.value : 'Pos 2';
-                    }
-
                     payload.push(cardData);
                 }
-            }
+            });
             db.ref('rooms/' + cloudRoomId + '/state').set(payload).catch((e) => console.error(e));
         }
     </script>
