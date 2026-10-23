@@ -20,15 +20,7 @@
         #terminal-output::-webkit-scrollbar-track { background: #0f172a; }
         #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* The Uniform Card Class */
-        .maker-card {
-            width: 280px;
-            height: 340px;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s ease;
-        }
+        .maker-card { width: 280px; height: 340px; flex-shrink: 0; display: flex; flex-direction: column; transition: all 0.3s ease; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
@@ -66,14 +58,8 @@
             </div>
         </div>
 
-        <!-- Single Grid for the synced layout -->
         <div id="dashboard-grid" class="hidden flex-wrap gap-6 justify-center sm:justify-start"></div>
 
-    </div>
-
-    <div class="fixed bottom-4 right-4 flex flex-col items-end z-40 pointer-events-none opacity-80 drop-shadow-xl">
-        <span class="text-[10px] font-bold text-slate-400 tracking-wider mb-1">POWERED BY</span>
-        <img src="Logo MAKERSPACE (3)-Photoroom.jpg" alt="Makerspace UTHM" class="h-8 sm:h-10 object-contain mix-blend-screen">
     </div>
 
     <script>
@@ -144,14 +130,13 @@
                 if (log) appendTerminal(log.msg, log.time, log.color);
             });
 
-            // Listen to HOST layout changes!
             db.ref('rooms/' + currentRoom + '/layout').on('value', (snap) => {
                 const layoutOrder = snap.val();
                 if(layoutOrder && Array.isArray(layoutOrder)) {
                     const grid = document.getElementById('dashboard-grid');
                     layoutOrder.forEach(id => {
                         const card = document.getElementById(`public-card-${id}`);
-                        if(card) grid.appendChild(card); // Visually sorts the DOM node
+                        if(card) grid.appendChild(card); 
                     });
                 }
             });
@@ -160,6 +145,23 @@
         function sendRemoteCommand(cmd) {
             if(!currentRoom) return;
             db.ref('rooms/' + currentRoom + '/command').push({ cmd: cmd, ts: Date.now() });
+        }
+
+        // --- NEW NATIVE RED/BLACK DIGITAL UPDATER ---
+        function updateDigitalUI(id, val) {
+            let v = Number(val);
+            let valIn = document.getElementById(`val-${id}`);
+            if(valIn) {
+                valIn.innerText = v === 1 ? 'HIGH' : 'LOW';
+                valIn.className = v === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-red-600 text-white shadow-[0_0_25px_rgba(220,38,38,0.8)] border-[4px] border-red-400" 
+                                          : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-slate-900 text-slate-500 shadow-inner border-[4px] border-slate-800";
+            }
+            
+            let valOut = document.getElementById(`val-out-${id}`);
+            if(valOut) {
+                valOut.className = v === 1 ? "w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-red-600 shadow-[0_0_20px_rgba(220,38,38,0.8)] border-[3px] border-red-400"
+                                           : "w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-slate-900 shadow-inner border-[3px] border-slate-800";
+            }
         }
 
         function renderSharedCards(sharedCards) {
@@ -176,7 +178,6 @@
             sharedCards.forEach(card => {
                 let cardEl = document.getElementById(`public-card-${card.id}`);
                 
-                // 1. Build the card if it doesn't exist
                 if (!cardEl) {
                     cardEl = document.createElement('div');
                     cardEl.id = `public-card-${card.id}`;
@@ -197,9 +198,9 @@
                     } else if (card.type === 'analog' && card.mode === 'OUT') {
                         html += `<div id="val-out-${card.id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">0</div><input type="range" min="0" max="1023" value="0" oninput="document.getElementById('val-out-${card.id}').innerText=this.value; sendRemoteCommand('${card.id}:'+this.value);" class="w-full mb-2 mt-auto">`;
                     } else if (card.type === 'digital' && card.mode === 'IN') {
-                        html += `<div id="val-${card.id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[4px] border-slate-800">LOW</div>`;
+                        html += `<div id="val-${card.id}" class="w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-200 bg-slate-900 text-slate-500 shadow-inner border-[4px] border-slate-800">LOW</div>`;
                     } else if (card.type === 'digital' && card.mode === 'OUT') {
-                        html += `<div id="val-out-${card.id}" class="w-12 h-12 mb-6 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[3px] border-red-800"></div><div class="flex justify-between gap-3 w-full mt-auto"><button onclick="sendRemoteCommand('${card.id}:0')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg border border-red-700">OFF</button><button onclick="sendRemoteCommand('${card.id}:1')" class="flex-1 py-4 bg-green-600 hover:bg-green-500 rounded-lg text-white font-bold text-lg shadow-lg border border-green-700">ON</button></div>`;
+                        html += `<div id="val-out-${card.id}" class="w-12 h-12 mb-6 rounded-full transition-all duration-200 bg-slate-900 shadow-inner border-[3px] border-slate-800"></div><div class="flex justify-between gap-3 w-full mt-auto"><button onclick="sendRemoteCommand('${card.id}:0')" class="flex-1 py-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-lg shadow-lg border border-slate-700">OFF</button><button onclick="sendRemoteCommand('${card.id}:1')" class="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-lg shadow-lg border border-red-500">ON</button></div>`;
                     } else if (card.type === 'text') {
                         html += `<div id="val-${card.id}" class="w-full h-full flex items-center justify-center text-center text-2xl font-bold text-pink-400 break-words"></div>`;
                     } else if (card.type === 'motor') {
@@ -214,7 +215,6 @@
                     if (card.type === 'analog' && card.mode === 'IN') initChart(card.id);
                 }
 
-                // 2. Update Live Data
                 if (card.type === 'text') {
                     let el = document.getElementById(`val-${card.id}`);
                     if(el) el.innerText = card.val;
@@ -227,15 +227,7 @@
                         let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum;
                         let out = document.getElementById(`val-out-${card.id}`); if(out) out.innerText = valNum;
                     } else if (card.type === 'digital') {
-                        let valIn = document.getElementById(`val-${card.id}`);
-                        if(valIn) {
-                            valIn.innerText = valNum === 1 ? 'HIGH' : 'LOW';
-                            valIn.className = valNum === 1 ? "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-orange-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.8)] border-[4px] border-orange-400" : "w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold transition-all duration-300 bg-slate-700 text-slate-400 shadow-inner border-[4px] border-slate-800";
-                        }
-                        let valOut = document.getElementById(`val-out-${card.id}`);
-                        if(valOut) {
-                            valOut.className = valNum === 1 ? "w-12 h-12 mb-6 rounded-full bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.8)] transition-all duration-300 border-[3px] border-green-400" : "w-12 h-12 mb-6 rounded-full bg-red-600 shadow-inner transition-all duration-300 border-[3px] border-red-800";
-                        }
+                        updateDigitalUI(card.id, valNum);
                     } else if (card.type === 'motor') {
                         let el = document.getElementById(`val-${card.id}`);
                         if (el) el.innerText = valNum > 0 ? `CW (${valNum})` : (valNum < 0 ? `CCW (${valNum})` : 'STOP (0)');
