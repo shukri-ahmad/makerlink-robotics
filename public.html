@@ -186,6 +186,7 @@
                     } else if (card.type === 'motor') {
                         bodyHTML = `
                             <div class="w-full flex flex-col items-center">
+                                <div id="val-${card.id}" class="text-lg font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
                                 <div class="flex gap-2 w-full">
                                     <button onclick="sendRemoteCommand('${card.id}:-255')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold py-3 rounded-lg shadow-lg">⏪ CCW</button>
                                     <button onclick="sendRemoteCommand('${card.id}:0')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-3 rounded-lg shadow-lg">⏹️ STOP</button>
@@ -215,6 +216,7 @@
                     if (card.type === 'analog' && card.mode === 'IN') initChart(card.id);
                 }
 
+                // --- LIVE UPDATES FROM FIREBASE ---
                 if (card.type === 'analog' && card.mode === 'IN') {
                     const valEl = document.getElementById(`val-${card.id}`);
                     if(valEl) { valEl.innerText = card.val; pushChartData(card.id, card.val); }
@@ -223,6 +225,14 @@
                     if(valEl) {
                         valEl.innerText = card.val;
                         valEl.className = card.val === 1 ? 'text-4xl font-mono text-emerald-400 font-bold drop-shadow-lg' : 'text-4xl font-mono text-slate-500 font-bold';
+                    }
+                } else if (card.type === 'motor') {
+                    // NEW: Update the public motor UI based on host state!
+                    const valEl = document.getElementById(`val-${card.id}`);
+                    if (valEl) {
+                        let val = Number(card.val) || 0;
+                        let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)');
+                        valEl.innerText = displayStr;
                     }
                 } else if (card.type === 'servo') {
                     const btn1 = document.getElementById(`btn-pos1-${card.id}`);
