@@ -28,10 +28,12 @@
         #terminal-output::-webkit-scrollbar-track { background: #0f172a; }
         #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* UPGRADED: Cards are now minimum 320px, but can grow if resized */
         .maker-card { min-width: 320px; width: 320px; height: 360px; flex-shrink: 0; display: flex; flex-direction: column; }
-        /* UPGRADED: Allows horizontal resizing from the bottom right corner */
-        .resize-x-card { resize: horizontal; overflow: hidden; max-width: 95vw; }
+        
+        /* Resizing ONLY enabled when is-editing class is on the body */
+        body.is-editing .resize-x-card { resize: horizontal; overflow: hidden; max-width: 95vw; }
+        body:not(.is-editing) .resize-x-card { resize: none; overflow: hidden; }
+        
         .sortable-ghost { opacity: 0.4; }
     </style>
 </head>
@@ -100,10 +102,30 @@
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
-        function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => c.id.replace('card-', '')); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } }
+        // UPGRADED: Save layout now saves both the Order AND the custom Width of the cards
+        function saveLayoutOrder() { 
+            const order = Array.from(gridEl.children).map(c => {
+                return { id: c.id.replace('card-', ''), width: c.style.width || '' };
+            }); 
+            localStorage.setItem('makerlink_layout', JSON.stringify(order)); 
+            if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } 
+        }
+
         function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); }
         function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') || '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } }
-        function applySavedLayout() { const saved = JSON.parse(localStorage.getItem('makerlink_layout') || '[]'); saved.forEach(id => { const card = document.getElementById(`card-${id}`); if (card) { gridEl.appendChild(card); } }); }
+        
+        // UPGRADED: Apply Layout now restores custom widths
+        function applySavedLayout() { 
+            const saved = JSON.parse(localStorage.getItem('makerlink_layout') || '[]'); 
+            saved.forEach(item => { 
+                let id = typeof item === 'string' ? item : item.id;
+                const card = document.getElementById(`card-${id}`); 
+                if (card) { 
+                    if (item.width) card.style.width = item.width;
+                    gridEl.appendChild(card); 
+                } 
+            }); 
+        }
 
         function showMsg(msg) { const box = document.getElementById('msg-box'); box.innerText = msg; box.classList.remove('opacity-0', 'pointer-events-none'); box.classList.add('opacity-100'); setTimeout(() => { box.classList.remove('opacity-100'); box.classList.add('opacity-0', 'pointer-events-none'); }, 4000); }
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
@@ -119,6 +141,7 @@
                 document.body.classList.remove('is-editing'); btn.innerHTML = "🔒 Lock UI"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.setAttribute('readonly', true); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.add('cursor-pointer'); el.classList.remove('cursor-text', 'border-yellow-400', 'border-dashed'); } });
                 saveCustomLabels();
+                saveLayoutOrder(); // Saves customized widths when locking UI!
             }
         }
 
@@ -142,10 +165,7 @@
         function updateAnalogOutUI(id, val) {
             let v = Number(val); advancedData[id] = v;
             let elOut = document.getElementById(`val-out-${id}`);
-            if(elOut) {
-                elOut.innerText = v;
-                elOut.style.color = getAnalogColor(v);
-            }
+            if(elOut) { elOut.innerText = v; elOut.style.color = getAnalogColor(v); }
             let sl = document.getElementById(`slider-${id}`);
             if(sl && sl.value != v) sl.value = v;
         }
@@ -156,8 +176,6 @@
             const card = document.createElement('div'); 
             
             let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
-            
-            // UPGRADED: Add resize-x-card class dynamically if it's an Analog IN card
             let isResizable = (type === 'analog' && mode === 'IN') ? 'resize-x-card' : '';
             card.className = `maker-card ${isResizable} bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg transition-colors`; 
             card.id = `card-${id}`;
@@ -168,12 +186,11 @@
             let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
 
             if (type === 'analog' && mode === 'IN') {
-                // UPGRADED: value="" and placeholder strings used to enable auto-scaling by default!
                 html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
                              <div id="val-${id}" class="absolute z-10 text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,1), 0px 0px 4px rgba(0,0,0,0.8);">0</div>
                              <canvas id="chart-${id}" class="absolute inset-0 w-full h-full opacity-60"></canvas>
                          </div>
-                         <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="0" placeholder="All" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
+                         <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="" placeholder="All" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
             } 
             else if (type === 'analog' && mode === 'OUT') {
                 html += `<div class="w-full flex-1 flex items-center justify-center">
@@ -239,7 +256,6 @@
             }); 
         }
 
-        // UPGRADED: Setting MIN or MAX to empty (deleting the text) removes the bound, making it AUTO SCALE
         function updateSensorChartConfig(id) { 
             const yMin = document.getElementById(`ymin-${id}`).value; 
             const yMax = document.getElementById(`ymax-${id}`).value; 
@@ -250,7 +266,6 @@
             } 
         }
 
-        // UPGRADED: If PTS is 0 or empty, it keeps all data points forever without shifting!
         function pushSensorData(id, val) { 
             if(!sensorCharts[id]) return; 
             const chart = sensorCharts[id]; 
@@ -260,6 +275,7 @@
             chart.data.labels.push(''); 
             chart.data.datasets[0].data.push(val); 
             
+            // If PTS > 0, slide the window. If PTS == 0 or empty, keep all data points forever!
             if(maxPts > 0 && chart.data.labels.length > maxPts) { 
                 chart.data.labels.shift(); 
                 chart.data.datasets[0].data.shift(); 
@@ -319,11 +335,7 @@
                 let valNum = parseFloat(valStr) || 0;
                 if (cardData.type === 'analog' && cardData.mode === 'IN') { 
                     let el = document.getElementById(`val-${id}`); 
-                    if(el) { 
-                        el.innerText = valNum; 
-                        el.style.color = getAnalogColor(valNum); 
-                        pushSensorData(id, valNum); 
-                    } 
+                    if(el) { el.innerText = valNum; el.style.color = getAnalogColor(valNum); pushSensorData(id, valNum); } 
                 } 
                 else if (cardData.type === 'analog' && cardData.mode === 'OUT') { updateAnalogOutUI(id, valNum); }
                 else if (cardData.type === 'digital') { updateDigitalUI(id, valNum); }
@@ -358,7 +370,7 @@
                     if (info.type === 'analog' && info.mode === 'IN') {
                         cardData.ymin = document.getElementById(`ymin-${id}`)?.value || ""; 
                         cardData.ymax = document.getElementById(`ymax-${id}`)?.value || ""; 
-                        cardData.xmax = document.getElementById(`xmax-${id}`)?.value || "0";
+                        cardData.xmax = document.getElementById(`xmax-${id}`)?.value || "";
                     } else if (info.type === 'digital' && info.mode === 'OUT') {
                         cardData.btnOff = document.getElementById(`btn-off-${id}`)?.value || "OFF"; cardData.btnOn = document.getElementById(`btn-on-${id}`)?.value || "ON";
                     } else if (info.type === 'servo') {
