@@ -47,8 +47,11 @@
             </div>
         </div>
         <div class="flex flex-wrap gap-3 justify-center">
-            <button id="btnConnect" onclick="connectBluetooth()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-lg">🔌 Connect</button>
-            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">🔒 Lock UI</button>
+            <div class="flex gap-[1px]">
+                <button id="btnConnect" onclick="connectBluetooth()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-l-lg transition-colors shadow-lg">🔌 Connect</button>
+                <button id="btnReconnect" onclick="reconnectBluetooth()" class="bg-blue-700 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded-r-lg transition-colors shadow-lg" title="Quick Reconnect to Last Device">⚡</button>
+            </div>
+            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">✏️ Edit Layout</button>
             <button id="btn-cloud" onclick="toggleCloud()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">☁️ Go Public</button>
             <button id="btn-clear" onclick="clearDashboard()" class="bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg">🗑️ Clear</button>
         </div>
@@ -158,10 +161,10 @@
             isEditMode = !isEditMode; sortable.option("disabled", !isEditMode); 
             const btn = document.getElementById('btn-edit');
             if (isEditMode) {
-                document.body.classList.add('is-editing'); btn.innerHTML = "🔓 Edit UI & Rename"; btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
+                document.body.classList.add('is-editing'); btn.innerHTML = "💾 Save & Lock"; btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
                 document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.removeAttribute('readonly'); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.remove('cursor-pointer'); el.classList.add('cursor-text', 'border-yellow-400', 'border-dashed'); } });
             } else {
-                document.body.classList.remove('is-editing'); btn.innerHTML = "🔒 Lock UI"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
+                document.body.classList.remove('is-editing'); btn.innerHTML = "✏️ Edit Layout"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.setAttribute('readonly', true); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.add('cursor-pointer'); el.classList.remove('cursor-text', 'border-yellow-400', 'border-dashed'); } });
                 saveCustomLabels(); saveLayoutOrder(); 
             }
@@ -275,14 +278,14 @@
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
@@ -337,27 +340,88 @@
             }
         }
         
-        function setMotor(id, action) { let val = 0; if (action === 'ccw') { let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } else if (action === 'cw') { let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)'); document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`); }
+        function setMotor(id, action) { 
+            let val = 0; 
+            if (action === 'ccw') { 
+                let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; 
+                val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
+            } else if (action === 'cw') { 
+                let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; 
+                val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
+            } 
+            
+            // Swap Polarity specifically for M1 and M2
+            if (id === 'M1' || id === 'M2') val = -val;
 
-        async function sendBluetoothCommand(cmd) { if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; } commandQueue.push(cmd); processCommandQueue(); }
-        async function processCommandQueue() { if (isTransmitting || commandQueue.length === 0) return; isTransmitting = true; const cmd = commandQueue.shift(); try { let data = new TextEncoder().encode(cmd + '\n'); if (txCharacteristic.properties.writeWithoutResponse) { await txCharacteristic.writeValueWithoutResponse(data); } else { await txCharacteristic.writeValue(data); } } catch (err) {} finally { isTransmitting = false; if (commandQueue.length > 0) { setTimeout(processCommandQueue, 10); } } }
+            let displayStr = 'STOP (0)';
+            if (val !== 0) {
+                let isM1M2 = (id === 'M1' || id === 'M2');
+                let dir = isM1M2 ? (val > 0 ? 'CCW' : 'CW') : (val > 0 ? 'CW' : 'CCW');
+                displayStr = `${dir} (${Math.abs(val)})`;
+            }
+            
+            document.getElementById(`val-${id}`).innerText = displayStr; 
+            advancedData[id] = val; 
+            sendBluetoothCommand(`${id}:${val}`); 
+        }
+
+        async function setupBluetoothDevice(device) {
+            bluetoothDevice = device;
+            bluetoothServer = await bluetoothDevice.gatt.connect(); 
+            uartService = await bluetoothServer.getPrimaryService(UART_SERVICE_UUID);
+            txCharacteristic = await uartService.getCharacteristic(UART_TX_CHAR_UUID); 
+            rxCharacteristic = await uartService.getCharacteristic(UART_RX_CHAR_UUID);
+            await rxCharacteristic.startNotifications(); 
+            rxCharacteristic.addEventListener('characteristicvaluechanged', handleIncomingData);
+
+            const btn = document.getElementById("btnConnect"); 
+            btn.innerHTML = "✅ Connected"; 
+            btn.classList.replace("bg-blue-600", "bg-green-600"); 
+            btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
+            
+            const btnRe = document.getElementById("btnReconnect");
+            if (btnRe) {
+                btnRe.classList.replace("bg-blue-700", "bg-green-700");
+                btnRe.classList.replace("hover:bg-blue-600", "hover:bg-green-600");
+            }
+
+            setTimeout(() => { sendBluetoothCommand('SYNC'); appendTerminal("Bluetooth connected. Sent SYNC to hardware."); }, 300);
+
+            bluetoothDevice.addEventListener('gattserverdisconnected', () => {
+                const btn = document.getElementById("btnConnect"); 
+                btn.innerHTML = "🔌 Connect"; 
+                btn.classList.replace("bg-green-600", "bg-blue-600"); 
+                btn.classList.replace("hover:bg-green-500", "hover:bg-blue-500");
+                
+                const btnRe = document.getElementById("btnReconnect");
+                if (btnRe) {
+                    btnRe.classList.replace("bg-green-700", "bg-blue-700");
+                    btnRe.classList.replace("hover:bg-green-600", "hover:bg-blue-600");
+                }
+                showMsg("Micro:bit disconnected!"); appendTerminal("Error: Bluetooth connection lost.");
+            });
+        }
 
         async function connectBluetooth() {
             if (!navigator || !navigator.bluetooth) { showMsg("Web Bluetooth API is missing! Use Chrome or Edge."); return; }
             try {
-                bluetoothDevice = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] });
-                bluetoothServer = await bluetoothDevice.gatt.connect(); uartService = await bluetoothServer.getPrimaryService(UART_SERVICE_UUID);
-                txCharacteristic = await uartService.getCharacteristic(UART_TX_CHAR_UUID); rxCharacteristic = await uartService.getCharacteristic(UART_RX_CHAR_UUID);
-                await rxCharacteristic.startNotifications(); rxCharacteristic.addEventListener('characteristicvaluechanged', handleIncomingData);
+                let device = await navigator.bluetooth.requestDevice({ filters: [{ namePrefix: 'BBC micro:bit' }], optionalServices: [UART_SERVICE_UUID] });
+                await setupBluetoothDevice(device);
+            } catch (error) { showMsg("Connection failed or cancelled."); }
+        }
 
-                const btn = document.getElementById("btnConnect"); btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-blue-600", "bg-green-600"); btn.classList.replace("hover:bg-blue-500", "hover:bg-green-500");
-                setTimeout(() => { sendBluetoothCommand('SYNC'); appendTerminal("Bluetooth connected. Sent SYNC to hardware."); }, 300);
-
-                bluetoothDevice.addEventListener('gattserverdisconnected', () => {
-                    const btn = document.getElementById("btnConnect"); btn.innerHTML = "🔌 Connect"; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-500", "hover:bg-blue-500");
-                    showMsg("Micro:bit disconnected!"); appendTerminal("Error: Bluetooth connection lost.");
-                });
-            } catch (error) { showMsg("Connection failed or cancelled. Check console (F12) for details."); }
+        async function reconnectBluetooth() {
+            if (!navigator || !navigator.bluetooth || !navigator.bluetooth.getDevices) { showMsg("Quick Reconnect not supported by this browser."); return; }
+            try {
+                const devices = await navigator.bluetooth.getDevices();
+                const microbits = devices.filter(d => d.name && d.name.startsWith('BBC micro:bit'));
+                if (microbits.length > 0) {
+                    appendTerminal("Attempting quick reconnect to " + microbits[0].name + "...");
+                    await setupBluetoothDevice(microbits[0]);
+                } else {
+                    showMsg("No previous micro:bit found. Use normal Connect.");
+                }
+            } catch (error) { showMsg("Reconnect failed."); }
         }
 
         function handleIncomingData(event) {
@@ -391,7 +455,14 @@
                 } 
                 else if (cardData.type === 'analog' && cardData.mode === 'OUT') { updateAnalogOutUI(id, valNum); }
                 else if (cardData.type === 'digital') { updateDigitalUI(id, valNum); }
-                else if (cardData.type === 'motor') { let el = document.getElementById(`val-${id}`); if (el) { el.innerText = valNum > 0 ? `CW (${valNum})` : (valNum < 0 ? `CCW (${valNum})` : 'STOP (0)'); } }
+                else if (cardData.type === 'motor') { 
+                    let el = document.getElementById(`val-${id}`); 
+                    if (el) { 
+                        let isM1M2 = (id === 'M1' || id === 'M2');
+                        let dir = isM1M2 ? (valNum > 0 ? 'CCW' : 'CW') : (valNum > 0 ? 'CW' : 'CCW');
+                        el.innerText = valNum === 0 ? 'STOP (0)' : `${dir} (${Math.abs(valNum)})`; 
+                    } 
+                }
                 else if (cardData.type === 'servo') { let el = document.getElementById(`slider-${id}`); if(el) el.value = valNum; let valEl = document.getElementById(`val-${id}`); if(valEl) valEl.innerText = valNum + '°'; }
             }
         }
@@ -432,7 +503,6 @@
                 if(cardVisibility[id] === false) return; 
 
                 if(info) {
-                    // UPGRADED: Added robust null fallback for Firebase protection
                     let cardData = { id: id, type: info.type, mode: info.mode || "", val: advancedData[id] !== undefined ? advancedData[id] : 0 };
                     cardData.title = document.getElementById(`title-${id}`)?.value || "Label";
                     
