@@ -81,7 +81,6 @@
         const gridEl = document.getElementById('dashboard-grid');
         const sortable = new Sortable(gridEl, { animation: 150, ghostClass: 'sortable-ghost', disabled: true, onEnd: function (evt) { saveLayoutOrder(); } });
 
-        // Grey to Orange
         function getAnalogColor(val) {
             let r = Math.min(1, Math.max(0, val / 1023));
             let red = Math.round(100 + r * 149);
@@ -90,7 +89,6 @@
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
-        // Grey to Blue
         function getAnalogOutColor(val) {
             let r = Math.min(1, Math.max(0, val / 1023));
             let red = Math.round(100 - r * 41);
@@ -181,8 +179,8 @@
                              <div id="val-out-${id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
                          </div>
                          <div class="flex flex-col gap-2 w-full mt-auto">
-                             <input type="text" id="btn-on-${id}" value="ON" readonly onclick="if(!isEditMode) sendBluetoothCommand('${id}:1')" class="ui-btn-editable w-full py-2 px-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg active:bg-red-700 transition-all border border-red-500 text-center cursor-pointer focus:outline-none truncate">
-                             <input type="text" id="btn-off-${id}" value="OFF" readonly onclick="if(!isEditMode) sendBluetoothCommand('${id}:0')" class="ui-btn-editable w-full py-2 px-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-sm shadow-lg active:bg-slate-600 transition-all border border-slate-700 text-center cursor-pointer focus:outline-none truncate">
+                             <input type="text" id="btn-on-${id}" value="ON" readonly onclick="if(!isEditMode) { sendBluetoothCommand('${id}:1'); updateDigitalUI('${id}', 1); }" class="ui-btn-editable w-full py-2 px-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg active:bg-red-700 transition-all border border-red-500 text-center cursor-pointer focus:outline-none truncate">
+                             <input type="text" id="btn-off-${id}" value="OFF" readonly onclick="if(!isEditMode) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }" class="ui-btn-editable w-full py-2 px-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-sm shadow-lg active:bg-slate-600 transition-all border border-slate-700 text-center cursor-pointer focus:outline-none truncate">
                          </div>`;
             } 
             else if (type === 'text') {
@@ -223,7 +221,16 @@
 
         function initSensorChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { min: 0, max: 1023, border: {display: false}, grid: {color: '#334155', drawBorder: false} } } } }); }
         function updateSensorChartConfig(id) { const yMin = parseFloat(document.getElementById(`ymin-${id}`).value) || 0; const yMax = parseFloat(document.getElementById(`ymax-${id}`).value) || 1023; if(sensorCharts[id]) { sensorCharts[id].options.scales.y.min = yMin; sensorCharts[id].options.scales.y.max = yMax; sensorCharts[id].update(); } }
-        function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const maxPts = parseInt(document.getElementById(`xmax-${id}`)?.value) || 20; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
+        
+        function pushSensorData(id, val) { 
+            if(!sensorCharts[id]) return; 
+            const chart = sensorCharts[id]; 
+            const xmaxEl = document.getElementById(`xmax-${id}`);
+            const maxPts = xmaxEl ? (parseInt(xmaxEl.value) || 20) : 20; 
+            chart.data.labels.push(''); chart.data.datasets[0].data.push(val); 
+            if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } 
+            chart.update(); 
+        }
 
         function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val); }
         function setServoPos(id, posNum) { let val = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; if (val > 180) val = 180; if (val < 0) val = 0; const slider = document.getElementById(`slider-${id}`); if (slider) slider.value = val; updateVal(id, val); sendBluetoothCommand(`${id}:${val}`); }
