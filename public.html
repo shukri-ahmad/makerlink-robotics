@@ -19,7 +19,8 @@
         #terminal-output::-webkit-scrollbar-track { background: #0f172a; }
         #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        .maker-card { width: 320px; height: 360px; flex-shrink: 0; display: flex; flex-direction: column; transition: all 0.3s ease; }
+        .maker-card { min-width: 320px; width: 320px; height: 360px; flex-shrink: 0; display: flex; flex-direction: column; transition: all 0.3s ease; }
+        .resize-x-card { resize: horizontal; overflow: hidden; max-width: 95vw; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
@@ -109,10 +110,7 @@
         function updateAnalogOutUI(id, val) {
             let v = Number(val);
             let elOut = document.getElementById(`val-out-${id}`);
-            if(elOut) {
-                elOut.innerText = v;
-                elOut.style.color = getAnalogColor(v);
-            }
+            if(elOut) { elOut.innerText = v; elOut.style.color = getAnalogColor(v); }
             let sl = document.getElementById(`slider-${id}`);
             if(sl && sl.value != v) sl.value = v;
         }
@@ -129,7 +127,9 @@
                 if (!cardEl) {
                     cardEl = document.createElement('div'); 
                     let borderTheme = card.type === 'analog' ? 'border-purple-500/60' : card.type === 'digital' ? 'border-emerald-500/60' : card.type === 'motor' ? 'border-orange-500/60' : card.type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
-                    cardEl.className = `maker-card bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg`;
+                    let isResizable = (card.type === 'analog' && card.mode === 'IN') ? 'resize-x-card' : '';
+                    
+                    cardEl.className = `maker-card ${isResizable} bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg`;
                     cardEl.id = `public-card-${card.id}`;
                     
                     let colorClass = card.type === 'analog' ? 'text-purple-400' : card.type === 'digital' ? 'text-emerald-400' : card.type === 'motor' ? 'text-orange-400' : card.type === 'text' ? 'text-pink-400' : 'text-blue-400';
@@ -142,7 +142,7 @@
                                      <div id="val-${card.id}" class="absolute z-10 text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,1), 0px 0px 4px rgba(0,0,0,0.8);">0</div>
                                      <canvas id="chart-${card.id}" class="absolute inset-0 w-full h-full opacity-60"></canvas>
                                  </div>
-                                 <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${card.id}" value="0" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${card.id}" value="1023" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${card.id}" value="20" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
+                                 <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${card.id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${card.id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${card.id}" value="0" placeholder="All" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
                     } 
                     else if (card.type === 'analog' && card.mode === 'OUT') {
                         html += `<div class="w-full flex-1 flex items-center justify-center">
@@ -192,8 +192,14 @@
                 else {
                     let valNum = parseFloat(card.val) || 0;
                     if (card.type === 'analog' && card.mode === 'IN') {
-                        let el = document.getElementById(`val-${card.id}`); if(el) { el.innerText = valNum; el.style.color = getAnalogColor(valNum); pushChartData(card.id, valNum, parseInt(card.xmax) || 20); }
-                        let chart = sensorCharts[card.id]; if(chart) { chart.options.scales.y.min = parseFloat(card.ymin) || 0; chart.options.scales.y.max = parseFloat(card.ymax) || 1023; chart.update(); }
+                        let el = document.getElementById(`val-${card.id}`); 
+                        if(el) { el.innerText = valNum; el.style.color = getAnalogColor(valNum); pushChartData(card.id, valNum, card.xmax === "" ? 0 : parseInt(card.xmax)); }
+                        let chart = sensorCharts[card.id]; 
+                        if(chart) { 
+                            if (card.ymin === "") delete chart.options.scales.y.min; else chart.options.scales.y.min = parseFloat(card.ymin); 
+                            if (card.ymax === "") delete chart.options.scales.y.max; else chart.options.scales.y.max = parseFloat(card.ymax); 
+                            chart.update(); 
+                        }
                     } else if (card.type === 'analog' && card.mode === 'OUT') { updateAnalogOutUI(card.id, valNum); } 
                     else if (card.type === 'digital') { updateDigitalUI(card.id, valNum); } 
                     else if (card.type === 'motor') { let el = document.getElementById(`val-${card.id}`); if (el) el.innerText = valNum > 0 ? `CW (${valNum})` : (valNum < 0 ? `CCW (${valNum})` : 'STOP (0)'); } 
@@ -202,14 +208,14 @@
             });
         }
 
-        function initChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { min: 0, max: 1023, display: false } } } }); }
+        function initChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } }); }
         
         function pushChartData(id, val, maxPts) { 
             if(!sensorCharts[id]) return; 
             const chart = sensorCharts[id]; 
-            const ptsLimit = maxPts || 20; 
             chart.data.labels.push(''); chart.data.datasets[0].data.push(val); 
-            if(chart.data.labels.length > ptsLimit) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } 
+            if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } 
+            chart.update(); 
         }
     </script>
 </body>
