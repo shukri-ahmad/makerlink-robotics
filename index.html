@@ -88,7 +88,7 @@
         let cardVisibility = JSON.parse(localStorage.getItem('makerlink_vis') || '{}');
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
-        let servoIntervals = {}; // Tracks slow-moving servo steps
+        let servoIntervals = {}; 
         
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -187,7 +187,10 @@
         function updateAnalogOutUI(id, val) {
             let v = Number(val); advancedData[id] = v;
             let elOut = document.getElementById(`val-out-${id}`);
-            if(elOut) { elOut.innerText = v; elOut.style.color = getAnalogColor(v); }
+            if(elOut) {
+                elOut.innerText = v;
+                elOut.style.color = getAnalogColor(v);
+            }
             let sl = document.getElementById(`slider-${id}`);
             if(sl && sl.value != v) sl.value = v;
         }
@@ -200,7 +203,7 @@
                 cardPermissions[id] = savedPerms[id] !== undefined ? savedPerms[id] : true;
             }
 
-            activeCardTypes[id] = { type: type, mode: mode }; advancedData[id] = startVals ? startVals[0] : 0;
+            activeCardTypes[id] = { type: type, mode: mode || "" }; advancedData[id] = startVals ? startVals[0] : 0;
             const card = document.createElement('div'); 
             
             let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
@@ -267,18 +270,18 @@
                          </div>`;
             } 
             else if (type === 'servo') {
-                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0]}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0]}" oninput="if(servoIntervals['${id}']) clearInterval(servoIntervals['${id}']); updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
+                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0] || 90}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0] || 90}" oninput="if(servoIntervals['${id}']) clearInterval(servoIntervals['${id}']); updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
                          <div class="flex gap-3 w-full">
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1]}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2]}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
@@ -306,7 +309,6 @@
 
         function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val); }
         
-        // UPGRADED: Servo Software Interpolation Engine
         function setServoPos(id, posNum) { 
             let targetVal = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; 
             let spd = parseInt(document.getElementById(`pos${posNum}-spd-${id}`).value) || 0; 
@@ -404,7 +406,6 @@
                 db.ref('rooms/' + cloudRoomId + '/command').on('child_added', (snap) => { 
                     const cmdData = snap.val(); 
                     if(cmdData && cmdData.cmd) { 
-                        // UPGRADED: Host intercepts POS1/POS2 to handle slow interpolation itself!
                         if (cmdData.cmd.includes(':POS1')) { setServoPos(cmdData.cmd.split(':')[0], 1); }
                         else if (cmdData.cmd.includes(':POS2')) { setServoPos(cmdData.cmd.split(':')[0], 2); }
                         else {
@@ -431,7 +432,8 @@
                 if(cardVisibility[id] === false) return; 
 
                 if(info) {
-                    let cardData = { id: id, type: info.type, mode: info.mode, val: advancedData[id] };
+                    // UPGRADED: Added robust null fallback for Firebase protection
+                    let cardData = { id: id, type: info.type, mode: info.mode || "", val: advancedData[id] !== undefined ? advancedData[id] : 0 };
                     cardData.title = document.getElementById(`title-${id}`)?.value || "Label";
                     
                     let isOut = (info.type === 'analog' && info.mode === 'OUT') || (info.type === 'digital' && info.mode === 'OUT') || info.type === 'motor' || info.type === 'servo';
