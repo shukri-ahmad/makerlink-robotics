@@ -81,6 +81,15 @@
         const gridEl = document.getElementById('dashboard-grid');
         const sortable = new Sortable(gridEl, { animation: 150, ghostClass: 'sortable-ghost', disabled: true, onEnd: function (evt) { saveLayoutOrder(); } });
 
+        // Interpolates from Grey (0) to Orange (1023)
+        function getAnalogColor(val) {
+            let r = Math.min(1, Math.max(0, val / 1023));
+            let red = Math.round(100 + r * 149); // 100 -> 249
+            let green = Math.round(116 - r * 1); // 116 -> 115
+            let blue = Math.round(139 - r * 117); // 139 -> 22
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
         function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => c.id.replace('card-', '')); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } }
         function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); }
         function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') || '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } }
@@ -107,9 +116,17 @@
 
         function updateDigitalUI(id, val) {
             let v = Number(val); advancedData[id] = v; let valIn = document.getElementById(`val-${id}`);
-            if(valIn) { valIn.innerText = v === 1 ? 'HIGH' : 'LOW'; if(v === 1) { valIn.style.backgroundColor = '#dc2626'; valIn.style.color = '#ffffff'; valIn.style.borderColor = '#f87171'; valIn.style.boxShadow = '0 0 25px rgba(220, 38, 38, 0.8)'; } else { valIn.style.backgroundColor = '#0f172a'; valIn.style.color = '#64748b'; valIn.style.borderColor = '#1e293b'; valIn.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } }
+            if(valIn) { 
+                valIn.innerText = v === 1 ? 'HIGH' : 'LOW'; 
+                if(v === 1) { valIn.style.backgroundColor = '#dc2626'; valIn.style.color = '#ffffff'; valIn.style.borderColor = '#f87171'; valIn.style.boxShadow = '0 0 25px rgba(220, 38, 38, 0.8)'; } 
+                else { valIn.style.backgroundColor = '#0f172a'; valIn.style.color = '#64748b'; valIn.style.borderColor = '#1e293b'; valIn.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } 
+            }
+            
             let valOut = document.getElementById(`val-out-${id}`);
-            if(valOut) { if(v === 1) { valOut.style.backgroundColor = '#dc2626'; valOut.style.borderColor = '#f87171'; valOut.style.boxShadow = '0 0 20px rgba(220, 38, 38, 0.8)'; } else { valOut.style.backgroundColor = '#0f172a'; valOut.style.borderColor = '#1e293b'; valOut.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } }
+            if(valOut) { 
+                if(v === 1) { valOut.style.backgroundColor = '#2563eb'; valOut.style.borderColor = '#60a5fa'; valOut.style.boxShadow = '0 0 25px rgba(37, 99, 235, 0.8)'; } 
+                else { valOut.style.backgroundColor = '#0f172a'; valOut.style.borderColor = '#1e293b'; valOut.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } 
+            }
         }
 
         function createPlayingCard(id, type, mode, startVals) {
@@ -123,7 +140,11 @@
             let html = `<div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
 
             if (type === 'analog' && mode === 'IN') {
-                html += `<div id="val-${id}" class="text-4xl font-mono ${colorClass} font-bold mb-2">0</div><div class="w-full flex-1 bg-slate-900 rounded-lg p-1 border border-slate-700 min-h-[100px] mb-2"><canvas id="chart-${id}"></canvas></div><div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="0" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="1023" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="20" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
+                html += `<div class="w-full flex-1 relative bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
+                             <div id="val-${id}" class="absolute z-10 text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,1), 0px 0px 4px rgba(0,0,0,0.8);">0</div>
+                             <canvas id="chart-${id}" class="absolute inset-0 w-full h-full opacity-60"></canvas>
+                         </div>
+                         <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="0" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="1023" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="20" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
             } 
             else if (type === 'analog' && mode === 'OUT') {
                 html += `<div id="val-out-${id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">${startVals[0]}</div><input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto"><div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
@@ -132,7 +153,9 @@
                 html += `<div id="val-${id}" class="w-28 h-28 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 border-[4px]">LOW</div>`;
             } 
             else if (type === 'digital' && mode === 'OUT') {
-                html += `<div id="val-out-${id}" class="w-14 h-14 mb-4 rounded-full transition-all duration-200 border-[3px]"></div>
+                html += `<div class="flex-1 flex items-center justify-center w-full">
+                             <div id="val-out-${id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
+                         </div>
                          <div class="flex flex-col gap-2 w-full mt-auto">
                              <input type="text" id="btn-on-${id}" value="ON" readonly onclick="if(!isEditMode) sendBluetoothCommand('${id}:1')" class="ui-btn-editable w-full py-2 px-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg active:bg-red-700 transition-all border border-red-500 text-center cursor-pointer focus:outline-none truncate">
                              <input type="text" id="btn-off-${id}" value="OFF" readonly onclick="if(!isEditMode) sendBluetoothCommand('${id}:0')" class="ui-btn-editable w-full py-2 px-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-sm shadow-lg active:bg-slate-600 transition-all border border-slate-700 text-center cursor-pointer focus:outline-none truncate">
@@ -164,7 +187,10 @@
 
             card.innerHTML = html; gridEl.appendChild(card);
             
-            if (type === 'analog' && mode === 'IN') initSensorChart(id);
+            if (type === 'analog' && mode === 'IN') {
+                initSensorChart(id);
+                if(startVals) document.getElementById(`val-${id}`).style.color = getAnalogColor(Number(startVals[0]));
+            }
             if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
 
             applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); 
@@ -223,12 +249,19 @@
 
             if (cardData.type === 'text') { let el = document.getElementById(`val-${id}`); if(el) el.innerText = valStr; } 
             else {
-                let val = parseFloat(valStr);
-                if (cardData.type === 'analog' && cardData.mode === 'IN') { let el = document.getElementById(`val-${id}`); if(el) { el.innerText = val; pushSensorData(id, val); } } 
-                else if (cardData.type === 'analog' && cardData.mode === 'OUT') { let el = document.getElementById(`slider-${id}`); if(el) el.value = val; let elOut = document.getElementById(`val-out-${id}`); if(elOut) elOut.innerText = val; }
-                else if (cardData.type === 'digital') { updateDigitalUI(id, val); }
-                else if (cardData.type === 'motor') { let el = document.getElementById(`val-${id}`); if (el) { el.innerText = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)'); } }
-                else if (cardData.type === 'servo') { let el = document.getElementById(`slider-${id}`); if(el) el.value = val; let valEl = document.getElementById(`val-${id}`); if(valEl) valEl.innerText = val + '°'; }
+                let valNum = parseFloat(valStr) || 0;
+                if (cardData.type === 'analog' && cardData.mode === 'IN') { 
+                    let el = document.getElementById(`val-${id}`); 
+                    if(el) { 
+                        el.innerText = valNum; 
+                        el.style.color = getAnalogColor(valNum); 
+                        pushChartData(id, valNum); 
+                    } 
+                } 
+                else if (cardData.type === 'analog' && cardData.mode === 'OUT') { let el = document.getElementById(`slider-${id}`); if(el) el.value = valNum; let elOut = document.getElementById(`val-out-${id}`); if(elOut) elOut.innerText = valNum; }
+                else if (cardData.type === 'digital') { updateDigitalUI(id, valNum); }
+                else if (cardData.type === 'motor') { let el = document.getElementById(`val-${id}`); if (el) { el.innerText = valNum > 0 ? `CW (${valNum})` : (valNum < 0 ? `CCW (${valNum})` : 'STOP (0)'); } }
+                else if (cardData.type === 'servo') { let el = document.getElementById(`slider-${id}`); if(el) el.value = valNum; let valEl = document.getElementById(`val-${id}`); if(valEl) valEl.innerText = valNum + '°'; }
             }
         }
 
