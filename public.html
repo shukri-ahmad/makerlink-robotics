@@ -86,16 +86,38 @@
 
         function joinRoom() {
             const roomId = document.getElementById('room-input').value; if (!roomId) { showMsg("Please enter a valid Room ID."); return; }
-            if(currentRoom) { db.ref('rooms/' + currentRoom + '/state').off(); db.ref('rooms/' + currentRoom + '/logs').off(); db.ref('rooms/' + currentRoom + '/layout').off(); }
+            if(currentRoom) { db.ref('rooms/' + currentRoom + '/state').off(); db.ref('rooms/' + currentRoom + '/logs').off(); db.ref('rooms/' + currentRoom + '/layout').off(); db.ref('rooms/' + currentRoom + '/config').off(); }
             currentRoom = roomId; const btn = document.getElementById('btn-join'); btn.innerHTML = "✅ Connected"; btn.classList.replace("bg-purple-600", "bg-green-600"); btn.classList.replace("hover:bg-purple-500", "hover:bg-green-500");
             showMsg(`Joined Room ${roomId}`);
             document.getElementById('empty-state').innerHTML = `<span class="text-6xl text-purple-500 animate-pulse">⏳</span><p>Waiting for Host data...</p>`;
             document.getElementById('section-terminal').classList.add('hidden'); document.getElementById('section-terminal').classList.remove('flex');
             document.getElementById('dashboard-grid').classList.add('hidden'); document.getElementById('dashboard-grid').classList.remove('flex');
 
+            db.ref('rooms/' + currentRoom + '/config').on('value', (snap) => {
+                const cfg = snap.val();
+                const termSec = document.getElementById('section-terminal');
+                // Hides or shows Terminal completely based on host's visibility setting
+                if (cfg && cfg.terminalVisible === false) { termSec.style.display = 'none'; } 
+                else { termSec.style.display = 'flex'; }
+            });
+
             db.ref('rooms/' + currentRoom + '/state').on('value', (snap) => { const data = snap.val(); if(data) { renderSharedCards(data); } else { document.getElementById('empty-state').classList.remove('hidden'); document.getElementById('dashboard-grid').classList.add('hidden'); document.getElementById('dashboard-grid').classList.remove('flex'); document.getElementById('empty-state').innerHTML = `<span class="text-6xl">📡</span><p>Room ${roomId} is empty or closed.</p>`; } });
             db.ref('rooms/' + currentRoom + '/logs').on('child_added', (snap) => { const log = snap.val(); if (log) appendTerminal(log.msg, log.time, log.color); });
-            db.ref('rooms/' + currentRoom + '/layout').on('value', (snap) => { const layoutOrder = snap.val(); if(layoutOrder && Array.isArray(layoutOrder)) { const grid = document.getElementById('dashboard-grid'); layoutOrder.forEach(item => { let id = typeof item === 'string' ? item : item.id; const card = document.getElementById(`public-card-${id}`); if(card) { if (item.width) card.style.width = item.width; grid.appendChild(card); } }); } });
+            
+            db.ref('rooms/' + currentRoom + '/layout').on('value', (snap) => { 
+                const layoutOrder = snap.val(); 
+                if(layoutOrder && Array.isArray(layoutOrder)) { 
+                    const grid = document.getElementById('dashboard-grid'); 
+                    layoutOrder.forEach(item => { 
+                        let id = typeof item === 'string' ? item : item.id;
+                        const card = document.getElementById(`public-card-${id}`); 
+                        if(card) {
+                            if (item.width) card.style.width = item.width;
+                            grid.appendChild(card); 
+                        }
+                    }); 
+                } 
+            });
         }
 
         function sendRemoteCommand(cmd) { if(!currentRoom) return; db.ref('rooms/' + currentRoom + '/command').push({ cmd: cmd, ts: Date.now() }); }
@@ -125,9 +147,12 @@
 
         function renderSharedCards(sharedCards) {
             const gridEl = document.getElementById('dashboard-grid');
-            document.getElementById('empty-state').classList.add('hidden'); document.getElementById('section-terminal').classList.remove('hidden'); document.getElementById('section-terminal').classList.add('flex'); gridEl.classList.remove('hidden'); gridEl.classList.add('flex');
+            document.getElementById('empty-state').classList.add('hidden'); 
+            document.getElementById('section-terminal').classList.remove('hidden'); 
+            gridEl.classList.remove('hidden'); gridEl.classList.add('flex');
             
             const currentCardIds = sharedCards.map(c => `public-card-${c.id}`);
+            // If the host toggled visibility OFF, the card won't be in sharedCards, so it gets removed instantly!
             document.querySelectorAll('[id^="public-card-"]').forEach(child => { if (!currentCardIds.includes(child.id)) child.remove(); });
 
             sharedCards.forEach(card => {
