@@ -81,11 +81,21 @@
         const gridEl = document.getElementById('dashboard-grid');
         const sortable = new Sortable(gridEl, { animation: 150, ghostClass: 'sortable-ghost', disabled: true, onEnd: function (evt) { saveLayoutOrder(); } });
 
+        // Grey to Orange
         function getAnalogColor(val) {
             let r = Math.min(1, Math.max(0, val / 1023));
             let red = Math.round(100 + r * 149);
             let green = Math.round(116 - r * 1);
             let blue = Math.round(139 - r * 117);
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
+        // Grey to Blue
+        function getAnalogOutColor(val) {
+            let r = Math.min(1, Math.max(0, val / 1023));
+            let red = Math.round(100 - r * 41);
+            let green = Math.round(116 + r * 14);
+            let blue = Math.round(139 + r * 107);
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
@@ -128,6 +138,17 @@
             }
         }
 
+        function updateAnalogOutUI(id, val) {
+            let v = Number(val); advancedData[id] = v;
+            let elOut = document.getElementById(`val-out-${id}`);
+            if(elOut) {
+                elOut.innerText = v;
+                elOut.style.color = getAnalogOutColor(v);
+            }
+            let sl = document.getElementById(`slider-${id}`);
+            if(sl && sl.value != v) sl.value = v;
+        }
+
         function createPlayingCard(id, type, mode, startVals) {
             if(document.getElementById(`card-${id}`)) return; 
             activeCardTypes[id] = { type: type, mode: mode }; advancedData[id] = startVals ? startVals[0] : 0;
@@ -146,7 +167,11 @@
                          <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="0" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="1023" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="20" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
             } 
             else if (type === 'analog' && mode === 'OUT') {
-                html += `<div id="val-out-${id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">${startVals[0]}</div><input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="document.getElementById('val-out-${id}').innerText=this.value; sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto"><div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
+                html += `<div class="w-full flex-1 flex items-center justify-center">
+                             <div id="val-out-${id}" class="text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,0.5);">${startVals[0]}</div>
+                         </div>
+                         <input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="updateAnalogOutUI('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto">
+                         <div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
             } 
             else if (type === 'digital' && mode === 'IN') {
                 html += `<div id="val-${id}" class="w-28 h-28 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 border-[4px]">LOW</div>`;
@@ -190,6 +215,7 @@
                 initSensorChart(id);
                 if(startVals) document.getElementById(`val-${id}`).style.color = getAnalogColor(Number(startVals[0]));
             }
+            if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0);
             if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
 
             applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); 
@@ -197,17 +223,7 @@
 
         function initSensorChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { min: 0, max: 1023, border: {display: false}, grid: {color: '#334155', drawBorder: false} } } } }); }
         function updateSensorChartConfig(id) { const yMin = parseFloat(document.getElementById(`ymin-${id}`).value) || 0; const yMax = parseFloat(document.getElementById(`ymax-${id}`).value) || 1023; if(sensorCharts[id]) { sensorCharts[id].options.scales.y.min = yMin; sensorCharts[id].options.scales.y.max = yMax; sensorCharts[id].update(); } }
-        
-        // COMPLETELY FIXED FUNCTION:
-        function pushSensorData(id, val) { 
-            if(!sensorCharts[id]) return; 
-            const chart = sensorCharts[id]; 
-            const xmaxEl = document.getElementById(`xmax-${id}`);
-            const maxPts = xmaxEl ? (parseInt(xmaxEl.value) || 20) : 20; 
-            chart.data.labels.push(''); chart.data.datasets[0].data.push(val); 
-            if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } 
-            chart.update(); 
-        }
+        function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const maxPts = parseInt(document.getElementById(`xmax-${id}`)?.value) || 20; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
 
         function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val); }
         function setServoPos(id, posNum) { let val = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; if (val > 180) val = 180; if (val < 0) val = 0; const slider = document.getElementById(`slider-${id}`); if (slider) slider.value = val; updateVal(id, val); sendBluetoothCommand(`${id}:${val}`); }
@@ -267,7 +283,7 @@
                         pushSensorData(id, valNum); 
                     } 
                 } 
-                else if (cardData.type === 'analog' && cardData.mode === 'OUT') { let el = document.getElementById(`slider-${id}`); if(el) el.value = valNum; let elOut = document.getElementById(`val-out-${id}`); if(elOut) elOut.innerText = valNum; }
+                else if (cardData.type === 'analog' && cardData.mode === 'OUT') { updateAnalogOutUI(id, valNum); }
                 else if (cardData.type === 'digital') { updateDigitalUI(id, valNum); }
                 else if (cardData.type === 'motor') { let el = document.getElementById(`val-${id}`); if (el) { el.innerText = valNum > 0 ? `CW (${valNum})` : (valNum < 0 ? `CCW (${valNum})` : 'STOP (0)'); } }
                 else if (cardData.type === 'servo') { let el = document.getElementById(`slider-${id}`); if(el) el.value = valNum; let valEl = document.getElementById(`val-${id}`); if(valEl) valEl.innerText = valNum + '°'; }
