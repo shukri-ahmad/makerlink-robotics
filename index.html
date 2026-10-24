@@ -81,19 +81,12 @@
         const gridEl = document.getElementById('dashboard-grid');
         const sortable = new Sortable(gridEl, { animation: 150, ghostClass: 'sortable-ghost', disabled: true, onEnd: function (evt) { saveLayoutOrder(); } });
 
+        // Grey (0) to Orange (1023) for ALL Analog Streams
         function getAnalogColor(val) {
             let r = Math.min(1, Math.max(0, val / 1023));
             let red = Math.round(100 + r * 149);
             let green = Math.round(116 - r * 1);
             let blue = Math.round(139 - r * 117);
-            return `rgb(${red}, ${green}, ${blue})`;
-        }
-
-        function getAnalogOutColor(val) {
-            let r = Math.min(1, Math.max(0, val / 1023));
-            let red = Math.round(100 - r * 41);
-            let green = Math.round(116 + r * 14);
-            let blue = Math.round(139 + r * 107);
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
@@ -141,7 +134,7 @@
             let elOut = document.getElementById(`val-out-${id}`);
             if(elOut) {
                 elOut.innerText = v;
-                elOut.style.color = getAnalogOutColor(v);
+                elOut.style.color = getAnalogColor(v); // Uses the universal Orange transition now!
             }
             let sl = document.getElementById(`slider-${id}`);
             if(sl && sl.value != v) sl.value = v;
@@ -150,12 +143,18 @@
         function createPlayingCard(id, type, mode, startVals) {
             if(document.getElementById(`card-${id}`)) return; 
             activeCardTypes[id] = { type: type, mode: mode }; advancedData[id] = startVals ? startVals[0] : 0;
-            const card = document.createElement('div'); card.className = "maker-card bg-slate-800 rounded-xl border border-slate-700 shadow-lg hover:border-slate-500/50 transition-colors"; card.id = `card-${id}`;
+            const card = document.createElement('div'); 
+            
+            // Dynamic Border Colors
+            let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
+            
+            card.className = `maker-card bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg transition-colors`; 
+            card.id = `card-${id}`;
 
             let colorClass = type === 'analog' ? 'text-purple-400' : type === 'digital' ? 'text-emerald-400' : type === 'motor' ? 'text-orange-400' : type === 'text' ? 'text-pink-400' : 'text-blue-400';
             let iconStr = type === 'analog' ? '📊' : type === 'digital' ? '🚥' : type === 'motor' ? '⚙️' : type === 'text' ? '📝' : '🦾';
 
-            let html = `<div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
+            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
 
             if (type === 'analog' && mode === 'IN') {
                 html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
@@ -205,7 +204,7 @@
                          </div>`;
             }
 
-            html += `</div><div class="p-2 bg-slate-900 border-t border-slate-700 rounded-b-xl flex justify-center"><input type="text" id="title-${id}" value="Custom Label" readonly class="ui-editable font-bold text-xs text-slate-400 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-full text-center placeholder-slate-500 cursor-pointer truncate" placeholder="Name this card..."></div>`;
+            html += `</div><div class="p-2 bg-slate-900 border-t-2 ${borderTheme} rounded-b-xl flex justify-center"><input type="text" id="title-${id}" value="Custom Label" readonly class="ui-editable font-bold text-xs text-slate-400 bg-transparent border-none outline-none focus:ring-1 focus:ring-slate-500 rounded w-full text-center placeholder-slate-500 cursor-pointer truncate" placeholder="Name this card..."></div>`;
 
             card.innerHTML = html; gridEl.appendChild(card);
             
@@ -221,16 +220,7 @@
 
         function initSensorChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { min: 0, max: 1023, border: {display: false}, grid: {color: '#334155', drawBorder: false} } } } }); }
         function updateSensorChartConfig(id) { const yMin = parseFloat(document.getElementById(`ymin-${id}`).value) || 0; const yMax = parseFloat(document.getElementById(`ymax-${id}`).value) || 1023; if(sensorCharts[id]) { sensorCharts[id].options.scales.y.min = yMin; sensorCharts[id].options.scales.y.max = yMax; sensorCharts[id].update(); } }
-        
-        function pushSensorData(id, val) { 
-            if(!sensorCharts[id]) return; 
-            const chart = sensorCharts[id]; 
-            const xmaxEl = document.getElementById(`xmax-${id}`);
-            const maxPts = xmaxEl ? (parseInt(xmaxEl.value) || 20) : 20; 
-            chart.data.labels.push(''); chart.data.datasets[0].data.push(val); 
-            if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } 
-            chart.update(); 
-        }
+        function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const maxPts = parseInt(document.getElementById(`xmax-${id}`)?.value) || 20; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
 
         function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val); }
         function setServoPos(id, posNum) { let val = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; if (val > 180) val = 180; if (val < 0) val = 0; const slider = document.getElementById(`slider-${id}`); if (slider) slider.value = val; updateVal(id, val); sendBluetoothCommand(`${id}:${val}`); }
