@@ -63,6 +63,15 @@
         firebase.initializeApp(firebaseConfig); const db = firebase.database();
         let currentRoom = null; const sensorCharts = {};
 
+        // Interpolates from Grey (0) to Orange (1023)
+        function getAnalogColor(val) {
+            let r = Math.min(1, Math.max(0, val / 1023));
+            let red = Math.round(100 + r * 149);
+            let green = Math.round(116 - r * 1);
+            let blue = Math.round(139 - r * 117);
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
         function showMsg(msg) { const box = document.getElementById('msg-box'); box.innerText = msg; box.classList.remove('opacity-0', 'pointer-events-none'); box.classList.add('opacity-100'); setTimeout(() => { box.classList.remove('opacity-100'); box.classList.add('opacity-0', 'pointer-events-none'); }, 4000); }
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
         function appendTerminal(msg, time, colorClass) { const term = document.getElementById('terminal-output'); if (term.innerHTML.includes("Awaiting logs...")) term.innerHTML = ''; const line = document.createElement('div'); line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass || 'text-emerald-400'}">${escapeHTML(msg)}</span>`; term.appendChild(line); term.scrollTop = term.scrollHeight; }
@@ -85,9 +94,17 @@
 
         function updateDigitalUI(id, val) {
             let v = Number(val); let valIn = document.getElementById(`val-${id}`);
-            if(valIn) { valIn.innerText = v === 1 ? 'HIGH' : 'LOW'; if(v === 1) { valIn.style.backgroundColor = '#dc2626'; valIn.style.color = '#ffffff'; valIn.style.borderColor = '#f87171'; valIn.style.boxShadow = '0 0 25px rgba(220, 38, 38, 0.8)'; } else { valIn.style.backgroundColor = '#0f172a'; valIn.style.color = '#64748b'; valIn.style.borderColor = '#1e293b'; valIn.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } }
+            if(valIn) { 
+                valIn.innerText = v === 1 ? 'HIGH' : 'LOW'; 
+                if(v === 1) { valIn.style.backgroundColor = '#dc2626'; valIn.style.color = '#ffffff'; valIn.style.borderColor = '#f87171'; valIn.style.boxShadow = '0 0 25px rgba(220, 38, 38, 0.8)'; } 
+                else { valIn.style.backgroundColor = '#0f172a'; valIn.style.color = '#64748b'; valIn.style.borderColor = '#1e293b'; valIn.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } 
+            }
+            
             let valOut = document.getElementById(`val-out-${id}`);
-            if(valOut) { if(v === 1) { valOut.style.backgroundColor = '#dc2626'; valOut.style.borderColor = '#f87171'; valOut.style.boxShadow = '0 0 20px rgba(220, 38, 38, 0.8)'; } else { valOut.style.backgroundColor = '#0f172a'; valOut.style.borderColor = '#1e293b'; valOut.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } }
+            if(valOut) { 
+                if(v === 1) { valOut.style.backgroundColor = '#2563eb'; valOut.style.borderColor = '#60a5fa'; valOut.style.boxShadow = '0 0 25px rgba(37, 99, 235, 0.8)'; } 
+                else { valOut.style.backgroundColor = '#0f172a'; valOut.style.borderColor = '#1e293b'; valOut.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } 
+            }
         }
 
         function renderSharedCards(sharedCards) {
@@ -107,21 +124,32 @@
                     let html = `<div class="p-3 bg-slate-900 border-b border-slate-700 flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${card.id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${card.mode || card.type.toUpperCase()}</span></div></div><div class="p-4 flex-1 flex flex-col justify-center items-center bg-slate-800 overflow-hidden">`;
 
                     if (card.type === 'analog' && card.mode === 'IN') {
-                        html += `<div id="val-${card.id}" class="text-4xl font-mono ${colorClass} font-bold mb-2">0</div><div class="w-full flex-1 bg-slate-900 rounded-lg p-1 border border-slate-700 min-h-[100px]"><canvas id="chart-${card.id}"></canvas></div>`;
-                    } else if (card.type === 'analog' && card.mode === 'OUT') {
-                        html += `<div id="val-out-${card.id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">0</div><input type="range" min="0" max="1023" value="0" oninput="document.getElementById('val-out-${card.id}').innerText=this.value; sendRemoteCommand('${card.id}:'+this.value);" class="w-full mb-2 mt-auto">`;
-                    } else if (card.type === 'digital' && card.mode === 'IN') {
+                        html += `<div class="w-full flex-1 relative bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
+                                     <div id="val-${card.id}" class="absolute z-10 text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,1), 0px 0px 4px rgba(0,0,0,0.8);">0</div>
+                                     <canvas id="chart-${card.id}" class="absolute inset-0 w-full h-full opacity-60"></canvas>
+                                 </div>
+                                 <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${card.id}" value="0" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${card.id}" value="1023" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${card.id}" value="20" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
+                    } 
+                    else if (card.type === 'analog' && card.mode === 'OUT') {
+                        html += `<div id="val-out-${card.id}" class="text-5xl font-mono ${colorClass} font-bold mb-8">0</div><input type="range" min="0" max="1023" value="0" oninput="document.getElementById('val-out-${card.id}').innerText=this.value; sendRemoteCommand('${card.id}:'+this.value);" class="w-full mb-2 mt-auto"><div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
+                    } 
+                    else if (card.type === 'digital' && card.mode === 'IN') {
                         html += `<div id="val-${card.id}" class="w-28 h-28 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 border-[4px]">LOW</div>`;
-                    } else if (card.type === 'digital' && card.mode === 'OUT') {
-                        html += `<div id="val-out-${card.id}" class="w-14 h-14 mb-4 rounded-full transition-all duration-200 border-[3px]"></div>
+                    } 
+                    else if (card.type === 'digital' && card.mode === 'OUT') {
+                        html += `<div class="flex-1 flex items-center justify-center w-full">
+                                     <div id="val-out-${card.id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
+                                 </div>
                                  <div class="flex flex-col gap-2 w-full mt-auto">
                                      <button id="btn-on-${card.id}" onclick="sendRemoteCommand('${card.id}:1')" class="w-full py-2 px-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg border border-red-500 truncate">${card.btnOn || "ON"}</button>
                                      <button id="btn-off-${card.id}" onclick="sendRemoteCommand('${card.id}:0')" class="w-full py-2 px-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-sm shadow-lg border border-slate-700 truncate">${card.btnOff || "OFF"}</button>
                                  </div>`;
-                    } else if (card.type === 'text') {
+                    } 
+                    else if (card.type === 'text') {
                         html += `<div id="val-${card.id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words"></div>`;
-                    } else if (card.type === 'motor') {
-                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-6 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
+                    } 
+                    else if (card.type === 'motor') {
+                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
                                  <div class="flex flex-col gap-2 w-full mt-auto">
                                      <div class="flex justify-center gap-6 w-full">
                                          <button id="btn-ccw-${card.id}" onclick="sendRemoteCommand('${card.id}:-255')" class="w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCcw || "⏪ CCW"}</button>
@@ -129,7 +157,8 @@
                                      </div>
                                      <button id="btn-stop-${card.id}" onclick="sendRemoteCommand('${card.id}:0')" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnStop || "⏹️ STOP"}</button>
                                  </div>`;
-                    } else if (card.type === 'servo') {
+                    } 
+                    else if (card.type === 'servo') {
                         html += `<div id="val-${card.id}" class="text-5xl font-mono text-blue-400 font-bold mb-6">90°</div><input type="range" id="slider-${card.id}" min="0" max="180" value="90" oninput="document.getElementById('val-${card.id}').innerText=this.value+'°'; sendRemoteCommand('${card.id}:'+this.value);" class="w-full mb-6 mt-auto"><div class="flex gap-3 w-full"><button id="btn-pos1-${card.id}" onclick="sendRemoteCommand('${card.id}:${card.pos1Val}')" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos1 || 'Pos 1'}</button><button id="btn-pos2-${card.id}" onclick="sendRemoteCommand('${card.id}:${card.pos2Val}')" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos2 || 'Pos 2'}</button></div>`;
                     }
 
@@ -148,7 +177,7 @@
                 else {
                     let valNum = parseFloat(card.val) || 0;
                     if (card.type === 'analog' && card.mode === 'IN') {
-                        let el = document.getElementById(`val-${card.id}`); if(el) { el.innerText = valNum; pushChartData(card.id, valNum, parseInt(card.xmax) || 20); }
+                        let el = document.getElementById(`val-${card.id}`); if(el) { el.innerText = valNum; el.style.color = getAnalogColor(valNum); pushChartData(card.id, valNum, parseInt(card.xmax) || 20); }
                         let chart = sensorCharts[card.id]; if(chart) { chart.options.scales.y.min = parseFloat(card.ymin) || 0; chart.options.scales.y.max = parseFloat(card.ymax) || 1023; chart.update(); }
                     } else if (card.type === 'analog' && card.mode === 'OUT') { let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum; let out = document.getElementById(`val-out-${card.id}`); if(out) out.innerText = valNum; } 
                     else if (card.type === 'digital') { updateDigitalUI(card.id, valNum); } 
