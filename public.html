@@ -121,11 +121,11 @@
                     } else if (card.type === 'text') {
                         html += `<div id="val-${card.id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words"></div>`;
                     } else if (card.type === 'motor') {
-                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
+                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-6 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
                                  <div class="flex flex-col gap-2 w-full mt-auto">
-                                     <div class="flex gap-2 w-full">
-                                         <button id="btn-ccw-${card.id}" onclick="sendRemoteCommand('${card.id}:-255')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCcw || "⏪ CCW"}</button>
-                                         <button id="btn-cw-${card.id}" onclick="sendRemoteCommand('${card.id}:255')" class="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCw || "CW ⏩"}</button>
+                                     <div class="flex justify-center gap-6 w-full">
+                                         <button id="btn-ccw-${card.id}" onclick="sendRemoteCommand('${card.id}:-255')" class="w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCcw || "⏪ CCW"}</button>
+                                         <button id="btn-cw-${card.id}" onclick="sendRemoteCommand('${card.id}:255')" class="w-28 bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCw || "CW ⏩"}</button>
                                      </div>
                                      <button id="btn-stop-${card.id}" onclick="sendRemoteCommand('${card.id}:0')" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnStop || "⏹️ STOP"}</button>
                                  </div>`;
