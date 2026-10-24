@@ -20,8 +20,6 @@
         #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
         .maker-card { min-width: 320px; width: 320px; height: 360px; flex-shrink: 0; display: flex; flex-direction: column; transition: all 0.3s ease; }
-        
-        /* Users viewing the public dashboard cannot resize cards, it respects the Host's width */
         .resize-x-card { overflow: hidden; max-width: 95vw; }
     </style>
 </head>
@@ -97,22 +95,7 @@
 
             db.ref('rooms/' + currentRoom + '/state').on('value', (snap) => { const data = snap.val(); if(data) { renderSharedCards(data); } else { document.getElementById('empty-state').classList.remove('hidden'); document.getElementById('dashboard-grid').classList.add('hidden'); document.getElementById('dashboard-grid').classList.remove('flex'); document.getElementById('empty-state').innerHTML = `<span class="text-6xl">📡</span><p>Room ${roomId} is empty or closed.</p>`; } });
             db.ref('rooms/' + currentRoom + '/logs').on('child_added', (snap) => { const log = snap.val(); if (log) appendTerminal(log.msg, log.time, log.color); });
-            
-            // Restores the exact width the Host stretched the cards to
-            db.ref('rooms/' + currentRoom + '/layout').on('value', (snap) => { 
-                const layoutOrder = snap.val(); 
-                if(layoutOrder && Array.isArray(layoutOrder)) { 
-                    const grid = document.getElementById('dashboard-grid'); 
-                    layoutOrder.forEach(item => { 
-                        let id = typeof item === 'string' ? item : item.id;
-                        const card = document.getElementById(`public-card-${id}`); 
-                        if(card) {
-                            if (item.width) card.style.width = item.width;
-                            grid.appendChild(card); 
-                        }
-                    }); 
-                } 
-            });
+            db.ref('rooms/' + currentRoom + '/layout').on('value', (snap) => { const layoutOrder = snap.val(); if(layoutOrder && Array.isArray(layoutOrder)) { const grid = document.getElementById('dashboard-grid'); layoutOrder.forEach(item => { let id = typeof item === 'string' ? item : item.id; const card = document.getElementById(`public-card-${id}`); if(card) { if (item.width) card.style.width = item.width; grid.appendChild(card); } }); } });
         }
 
         function sendRemoteCommand(cmd) { if(!currentRoom) return; db.ref('rooms/' + currentRoom + '/command').push({ cmd: cmd, ts: Date.now() }); }
@@ -149,6 +132,9 @@
 
             sharedCards.forEach(card => {
                 let cardEl = document.getElementById(`public-card-${card.id}`);
+                
+                let isOutput = (card.type === 'analog' && card.mode === 'OUT') || (card.type === 'digital' && card.mode === 'OUT') || card.type === 'motor' || card.type === 'servo';
+                
                 if (!cardEl) {
                     cardEl = document.createElement('div'); 
                     let borderTheme = card.type === 'analog' ? 'border-purple-500/60' : card.type === 'digital' ? 'border-emerald-500/60' : card.type === 'motor' ? 'border-orange-500/60' : card.type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
@@ -160,7 +146,9 @@
                     let colorClass = card.type === 'analog' ? 'text-purple-400' : card.type === 'digital' ? 'text-emerald-400' : card.type === 'motor' ? 'text-orange-400' : card.type === 'text' ? 'text-pink-400' : 'text-blue-400';
                     let iconStr = card.type === 'analog' ? '📊' : card.type === 'digital' ? '🚥' : card.type === 'motor' ? '⚙️' : card.type === 'text' ? '📝' : '🦾';
 
-                    let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${card.id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${card.mode || card.type.toUpperCase()}</span></div></div><div class="p-4 flex-1 flex flex-col justify-center items-center bg-slate-800 overflow-hidden">`;
+                    let permBtnHTML = isOutput ? `<span id="public-perm-${card.id}" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded transition-colors bg-green-900/50 text-green-400 border-green-700">🎮 Public</span>` : '';
+
+                    let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${card.id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${card.mode || card.type.toUpperCase()}</span>${permBtnHTML}</div></div><div class="p-4 flex-1 flex flex-col justify-center items-center bg-slate-800 overflow-hidden">`;
 
                     if (card.type === 'analog' && card.mode === 'IN') {
                         html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
@@ -212,6 +200,35 @@
                 if (card.type === 'digital' && card.mode === 'OUT') { let bOff = document.getElementById(`btn-off-${card.id}`); if(bOff) bOff.innerText = card.btnOff || "OFF"; let bOn = document.getElementById(`btn-on-${card.id}`); if(bOn) bOn.innerText = card.btnOn || "ON"; } 
                 else if (card.type === 'motor') { let bCcw = document.getElementById(`btn-ccw-${card.id}`); if(bCcw) bCcw.innerText = card.btnCcw || "⏪ CCW"; let bStop = document.getElementById(`btn-stop-${card.id}`); if(bStop) bStop.innerText = card.btnStop || "⏹️ STOP"; let bCw = document.getElementById(`btn-cw-${card.id}`); if(bCw) bCw.innerText = card.btnCw || "CW ⏩"; } 
                 else if (card.type === 'servo') { let bP1 = document.getElementById(`btn-pos1-${card.id}`); if(bP1) bP1.innerText = card.btnPos1 || "Pos 1"; let bP2 = document.getElementById(`btn-pos2-${card.id}`); if(bP2) bP2.innerText = card.btnPos2 || "Pos 2"; }
+
+                if (isOutput) {
+                    let canControl = card.publicControl !== false; 
+                    let badge = document.getElementById(`public-perm-${card.id}`);
+                    if (badge) {
+                        if (canControl) {
+                            badge.innerText = "🎮 Public";
+                            badge.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded transition-colors bg-green-900/50 text-green-400 border-green-700";
+                        } else {
+                            badge.innerText = "👁️ View Only";
+                            badge.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded transition-colors bg-red-900/50 text-red-400 border-red-700";
+                        }
+                    }
+                    
+                    let elsToToggle = [];
+                    if (card.type === 'analog' && card.mode === 'OUT') elsToToggle = [`slider-${card.id}`];
+                    else if (card.type === 'digital' && card.mode === 'OUT') elsToToggle = [`btn-on-${card.id}`, `btn-off-${card.id}`];
+                    else if (card.type === 'motor') elsToToggle = [`btn-ccw-${card.id}`, `btn-cw-${card.id}`, `btn-stop-${card.id}`];
+                    else if (card.type === 'servo') elsToToggle = [`slider-${card.id}`, `btn-pos1-${card.id}`, `btn-pos2-${card.id}`];
+                    
+                    elsToToggle.forEach(eid => {
+                        let el = document.getElementById(eid);
+                        if(el) {
+                            el.disabled = !canControl;
+                            if(canControl) { el.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none'); } 
+                            else { el.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none'); }
+                        }
+                    });
+                }
 
                 if (card.type === 'text') { let el = document.getElementById(`val-${card.id}`); if(el) el.innerText = card.val; } 
                 else {
