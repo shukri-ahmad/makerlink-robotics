@@ -87,8 +87,11 @@
         let isCloudActive = false, cloudRoomId = null, cloudInterval = null;
         let isEditMode = false;
         
+        // Bulletproof Memory Loading
         let cardPermissions = {}; 
-        let cardVisibility = JSON.parse(localStorage.getItem('makerlink_vis') || '{}');
+        let cardVisibility = {};
+        try { cardVisibility = JSON.parse(localStorage.getItem('makerlink_vis')) || {}; } catch(e) {}
+        if (!cardVisibility || typeof cardVisibility !== 'object') cardVisibility = {};
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
         let servoIntervals = {}; 
@@ -118,8 +121,24 @@
 
         function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => { return { id: c.id.replace('card-', ''), width: c.style.width || '' }; }); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } }
         function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); }
-        function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') || '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } }
-        function applySavedLayout() { const saved = JSON.parse(localStorage.getItem('makerlink_layout') || '[]'); saved.forEach(item => { let id = typeof item === 'string' ? item : item.id; const card = document.getElementById(`card-${id}`); if (card) { if (item.width) card.style.width = item.width; gridEl.appendChild(card); } }); }
+        
+        function applyCustomLabels() { 
+            let labels = {};
+            try { labels = JSON.parse(localStorage.getItem('makerlink_labels')) || {}; } catch(e) {}
+            for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } 
+        }
+
+        function applySavedLayout() { 
+            let saved = [];
+            try { saved = JSON.parse(localStorage.getItem('makerlink_layout')) || []; } catch(e) {}
+            if(!Array.isArray(saved)) saved = [];
+            saved.forEach(item => { 
+                if(!item) return;
+                let id = typeof item === 'string' ? item : item.id; 
+                const card = document.getElementById(`card-${id}`); 
+                if (card) { if (item.width) card.style.width = item.width; gridEl.appendChild(card); } 
+            }); 
+        }
 
         function showMsg(msg) { const box = document.getElementById('msg-box'); box.innerText = msg; box.classList.remove('opacity-0', 'pointer-events-none'); box.classList.add('opacity-100'); setTimeout(() => { box.classList.remove('opacity-100'); box.classList.add('opacity-0', 'pointer-events-none'); }, 4000); }
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
@@ -201,12 +220,16 @@
         function createPlayingCard(id, type, mode, startVals) {
             if(document.getElementById(`card-${id}`)) return; 
             
+            // Bulletproof permission parsing
             if(cardPermissions[id] === undefined) {
-                let savedPerms = JSON.parse(localStorage.getItem('makerlink_perms') || '{}');
+                let savedPerms = {};
+                try { savedPerms = JSON.parse(localStorage.getItem('makerlink_perms')) || {}; } catch(e) {}
+                if (!savedPerms || typeof savedPerms !== 'object') savedPerms = {};
                 cardPermissions[id] = savedPerms[id] !== undefined ? savedPerms[id] : true;
             }
 
-            activeCardTypes[id] = { type: type, mode: mode || "" }; advancedData[id] = startVals ? startVals[0] : 0;
+            activeCardTypes[id] = { type: type, mode: mode || "" }; 
+            advancedData[id] = startVals ? startVals[0] : 0;
             const card = document.createElement('div'); 
             
             let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
@@ -241,9 +264,9 @@
             } 
             else if (type === 'analog' && mode === 'OUT') {
                 html += `<div class="w-full flex-1 flex items-center justify-center">
-                             <div id="val-out-${id}" class="text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,0.5);">${startVals[0]}</div>
+                             <div id="val-out-${id}" class="text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,0.5);">${startVals[0] || 0}</div>
                          </div>
-                         <input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0]}" oninput="updateAnalogOutUI('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto">
+                         <input type="range" id="slider-${id}" min="0" max="1023" value="${startVals[0] || 0}" oninput="updateAnalogOutUI('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-2 mt-auto">
                          <div class="flex justify-between w-full text-xs text-slate-500 font-mono"><span>0</span><span>1023</span></div>`;
             } 
             else if (type === 'digital' && mode === 'IN') {
@@ -259,7 +282,7 @@
                          </div>`;
             } 
             else if (type === 'text') {
-                html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
+                html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words">${startVals[0] || 'Ready'}</div>`;
             }
             else if (type === 'motor') {
                 html += `<div id="val-${id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
@@ -298,7 +321,7 @@
             
             if (type === 'analog' && mode === 'IN') {
                 initSensorChart(id);
-                if(startVals) document.getElementById(`val-${id}`).style.color = getAnalogColor(Number(startVals[0]));
+                if(startVals && startVals[0] !== undefined) document.getElementById(`val-${id}`).style.color = getAnalogColor(Number(startVals[0]));
             }
             if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0);
             if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
@@ -350,7 +373,6 @@
                 val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
             } 
             
-            // Swap Polarity specifically for M1 and M2
             if (id === 'M1' || id === 'M2') val = -val;
 
             let displayStr = 'STOP (0)';
