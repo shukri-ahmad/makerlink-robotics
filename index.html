@@ -57,7 +57,10 @@
     <div class="flex flex-col gap-8 flex-1 pb-20">
         <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg flex flex-col mb-2">
             <div class="p-3 border-b border-slate-700 flex justify-between items-center bg-slate-900/50 rounded-t-xl">
-                <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">💻 System Terminal</h3>
+                <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2">💻 System Terminal</h3>
+                    <button id="vis-btn-terminal" onclick="toggleVisibility('terminal')" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-blue-900/50 text-blue-400 border-blue-700" title="Toggle Public Visibility">👁️</button>
+                </div>
                 <button onclick="document.getElementById('terminal-output').innerHTML='<div class=\'text-slate-600 italic\'>Logs cleared.</div>'" class="text-[10px] font-bold bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-slate-300 transition-colors shadow-inner">CLEAR</button>
             </div>
             <div id="terminal-output" class="p-3 h-32 overflow-y-auto font-mono text-xs text-emerald-400 space-y-1 bg-[#0a0f18] rounded-b-xl break-words shadow-inner">
@@ -76,6 +79,8 @@
         let isEditMode = false;
         
         let cardPermissions = {}; 
+        let cardVisibility = JSON.parse(localStorage.getItem('makerlink_vis') || '{}');
+        
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -83,6 +88,15 @@
 
         const gridEl = document.getElementById('dashboard-grid');
         const sortable = new Sortable(gridEl, { animation: 150, ghostClass: 'sortable-ghost', disabled: true, onEnd: function (evt) { saveLayoutOrder(); } });
+
+        // Initialize Terminal Visibility Button
+        if (cardVisibility['terminal'] === false) {
+            let tBtn = document.getElementById('vis-btn-terminal');
+            if(tBtn) {
+                tBtn.innerText = "🙈";
+                tBtn.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-slate-700/50 text-slate-400 border-slate-600";
+            }
+        }
 
         function getAnalogColor(val) {
             let r = Math.min(1, Math.max(0, val / 1023));
@@ -109,7 +123,6 @@
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
         function appendTerminal(msg) { const term = document.getElementById('terminal-output'); if (term.innerHTML.includes("Waiting for micro:bit SYNC...")) term.innerHTML = ''; const time = new Date().toLocaleTimeString('en-US', { hour12: false }); const line = document.createElement('div'); let colorClass = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-400'; line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass}">${escapeHTML(msg)}</span>`; term.appendChild(line); term.scrollTop = term.scrollHeight; if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/logs').push({ time: time, msg: msg, color: colorClass }); } }
 
-        // Host Controller Toggle Logic
         function togglePermission(id) {
             cardPermissions[id] = !cardPermissions[id];
             let btn = document.getElementById(`perm-btn-${id}`);
@@ -126,6 +139,23 @@
             if (isCloudActive) syncCloud();
         }
 
+        // Visibility Toggle Logic
+        function toggleVisibility(id) {
+            cardVisibility[id] = cardVisibility[id] === false ? true : false;
+            let btn = document.getElementById(`vis-btn-${id}`);
+            if (btn) {
+                if (cardVisibility[id]) {
+                    btn.innerText = "👁️";
+                    btn.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-blue-900/50 text-blue-400 border-blue-700";
+                } else {
+                    btn.innerText = "🙈";
+                    btn.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-slate-700/50 text-slate-400 border-slate-600";
+                }
+            }
+            localStorage.setItem('makerlink_vis', JSON.stringify(cardVisibility));
+            if (isCloudActive) syncCloud();
+        }
+
         function toggleEditMode() {
             isEditMode = !isEditMode; sortable.option("disabled", !isEditMode); 
             const btn = document.getElementById('btn-edit');
@@ -139,7 +169,7 @@
             }
         }
 
-        function clearDashboard() { gridEl.innerHTML = ''; activeCardTypes = {}; cardPermissions = {}; localStorage.removeItem('makerlink_layout'); localStorage.removeItem('makerlink_labels'); localStorage.removeItem('makerlink_perms'); appendTerminal("Dashboard cleared manually."); }
+        function clearDashboard() { gridEl.innerHTML = ''; activeCardTypes = {}; cardPermissions = {}; cardVisibility = {}; localStorage.removeItem('makerlink_layout'); localStorage.removeItem('makerlink_labels'); localStorage.removeItem('makerlink_perms'); localStorage.removeItem('makerlink_vis'); appendTerminal("Dashboard cleared manually."); }
 
         function updateDigitalUI(id, val) {
             let v = Number(val); advancedData[id] = v; let valIn = document.getElementById(`val-${id}`);
@@ -159,7 +189,10 @@
         function updateAnalogOutUI(id, val) {
             let v = Number(val); advancedData[id] = v;
             let elOut = document.getElementById(`val-out-${id}`);
-            if(elOut) { elOut.innerText = v; elOut.style.color = getAnalogColor(v); }
+            if(elOut) {
+                elOut.innerText = v;
+                elOut.style.color = getAnalogColor(v);
+            }
             let sl = document.getElementById(`slider-${id}`);
             if(sl && sl.value != v) sl.value = v;
         }
@@ -184,14 +217,19 @@
             let iconStr = type === 'analog' ? '📊' : type === 'digital' ? '🚥' : type === 'motor' ? '⚙️' : type === 'text' ? '📝' : '🦾';
 
             let isOutput = (type === 'analog' && mode === 'OUT') || (type === 'digital' && mode === 'OUT') || type === 'motor' || type === 'servo';
-            let permBtnHTML = '';
+            
+            let headerBtnsHTML = '';
             if (isOutput) {
                 let permLabel = cardPermissions[id] ? "🎮 Public" : "👁️ View Only";
                 let permClass = cardPermissions[id] ? "bg-green-900/50 text-green-400 border-green-700" : "bg-red-900/50 text-red-400 border-red-700";
-                permBtnHTML = `<button id="perm-btn-${id}" onclick="togglePermission('${id}')" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-opacity ${permClass}">${permLabel}</button>`;
+                headerBtnsHTML += `<button id="perm-btn-${id}" onclick="togglePermission('${id}')" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-opacity ${permClass}" title="Toggle Public Control">${permLabel}</button>`;
             }
+            
+            let visLabel = cardVisibility[id] !== false ? "👁️" : "🙈";
+            let visClass = cardVisibility[id] !== false ? "bg-blue-900/50 text-blue-400 border-blue-700" : "bg-slate-700/50 text-slate-400 border-slate-600";
+            headerBtnsHTML += `<button id="vis-btn-${id}" onclick="toggleVisibility('${id}')" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors ${visClass}" title="Toggle Public Visibility">${visLabel}</button>`;
 
-            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span>${permBtnHTML}</div></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
+            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div><div class="flex items-center">${headerBtnsHTML}</div></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
 
             if (type === 'analog' && mode === 'IN') {
                 html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
@@ -337,8 +375,16 @@
 
         function syncCloud() {
             const payload = [];
+            
+            // Sync Terminal config
+            db.ref('rooms/' + cloudRoomId + '/config').set({ terminalVisible: cardVisibility['terminal'] !== false });
+
             Array.from(gridEl.children).forEach(cardDom => {
                 let id = cardDom.id.replace('card-', ''); let info = activeCardTypes[id];
+                
+                // If visibility is explicitly toggled off, Skip sending this card entirely!
+                if(cardVisibility[id] === false) return; 
+
                 if(info) {
                     let cardData = { id: id, type: info.type, mode: info.mode, val: advancedData[id] };
                     cardData.title = document.getElementById(`title-${id}`)?.value || "Label";
