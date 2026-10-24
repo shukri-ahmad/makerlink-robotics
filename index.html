@@ -40,7 +40,6 @@
 
     <header class="flex flex-col xl:flex-row justify-between items-center bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700 mb-6 gap-6 xl:gap-0 shrink-0 relative z-10">
         <div class="flex items-center gap-4">
-            <!-- New MakerLink Logo -->
             <img src="MakerLink Logo.jpg" alt="MakerLink Logo" class="h-16 md:h-20 object-contain rounded-lg shadow-md mix-blend-screen">
             <div class="flex flex-col justify-center">
                 <h1 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 leading-tight">MakerLink Host</h1>
@@ -89,6 +88,8 @@
         let cardVisibility = JSON.parse(localStorage.getItem('makerlink_vis') || '{}');
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
+        let servoIntervals = {}; // Tracks slow-moving servo steps
+        
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
         let rxBuffer = ''; let commandQueue = []; let isTransmitting = false;
@@ -109,14 +110,6 @@
             let red = Math.round(100 + r * 149);
             let green = Math.round(116 - r * 1);
             let blue = Math.round(139 - r * 117);
-            return `rgb(${red}, ${green}, ${blue})`;
-        }
-
-        function getAnalogOutColor(val) {
-            let r = Math.min(1, Math.max(0, val / 1023));
-            let red = Math.round(100 - r * 41);
-            let green = Math.round(116 + r * 14);
-            let blue = Math.round(139 + r * 107);
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
@@ -194,10 +187,7 @@
         function updateAnalogOutUI(id, val) {
             let v = Number(val); advancedData[id] = v;
             let elOut = document.getElementById(`val-out-${id}`);
-            if(elOut) {
-                elOut.innerText = v;
-                elOut.style.color = getAnalogColor(v);
-            }
+            if(elOut) { elOut.innerText = v; elOut.style.color = getAnalogColor(v); }
             let sl = document.getElementById(`slider-${id}`);
             if(sl && sl.value != v) sl.value = v;
         }
@@ -277,10 +267,22 @@
                          </div>`;
             } 
             else if (type === 'servo') {
-                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-6">${startVals[0]}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0]}" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-6 mt-auto">
+                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0]}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0]}" oninput="if(servoIntervals['${id}']) clearInterval(servoIntervals['${id}']); updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
                          <div class="flex gap-3 w-full">
-                             <div class="flex-1 flex flex-col gap-2"><input type="number" id="pos1-val-${id}" value="${startVals[1]}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner"><input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate"></div>
-                             <div class="flex-1 flex flex-col gap-2"><input type="number" id="pos2-val-${id}" value="${startVals[2]}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-2 text-center text-sm font-mono text-blue-400 shadow-inner"><input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate"></div>
+                             <div class="flex-1 flex flex-col gap-1">
+                                 <div class="flex gap-1 w-full">
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1]}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
+                                 </div>
+                                 <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
+                             </div>
+                             <div class="flex-1 flex flex-col gap-1">
+                                 <div class="flex gap-1 w-full">
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2]}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
+                                 </div>
+                                 <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
+                             </div>
                          </div>`;
             }
 
@@ -303,7 +305,36 @@
         function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const xmaxEl = document.getElementById(`xmax-${id}`); const maxPts = (xmaxEl && xmaxEl.value !== "") ? parseInt(xmaxEl.value) : 0; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
 
         function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val); }
-        function setServoPos(id, posNum) { let val = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; if (val > 180) val = 180; if (val < 0) val = 0; const slider = document.getElementById(`slider-${id}`); if (slider) slider.value = val; updateVal(id, val); sendBluetoothCommand(`${id}:${val}`); }
+        
+        // UPGRADED: Servo Software Interpolation Engine
+        function setServoPos(id, posNum) { 
+            let targetVal = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; 
+            let spd = parseInt(document.getElementById(`pos${posNum}-spd-${id}`).value) || 0; 
+            if (targetVal > 180) targetVal = 180; if (targetVal < 0) targetVal = 0; 
+            
+            if (servoIntervals[id]) clearInterval(servoIntervals[id]);
+            
+            if (spd <= 0) {
+                const slider = document.getElementById(`slider-${id}`); 
+                if (slider) slider.value = targetVal; 
+                updateVal(id, targetVal); 
+                sendBluetoothCommand(`${id}:${targetVal}`); 
+            } else {
+                let currentVal = advancedData[id] || 0;
+                if (currentVal === targetVal) return;
+                let step = currentVal < targetVal ? 1 : -1;
+                
+                servoIntervals[id] = setInterval(() => {
+                    currentVal += step;
+                    const slider = document.getElementById(`slider-${id}`); 
+                    if (slider) slider.value = currentVal; 
+                    updateVal(id, currentVal); 
+                    sendBluetoothCommand(`${id}:${currentVal}`); 
+                    if (currentVal === targetVal) clearInterval(servoIntervals[id]);
+                }, spd);
+            }
+        }
+        
         function setMotor(id, action) { let val = 0; if (action === 'ccw') { let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } else if (action === 'cw') { let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)'); document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`); }
 
         async function sendBluetoothCommand(cmd) { if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; } commandQueue.push(cmd); processCommandQueue(); }
@@ -370,7 +401,18 @@
                 btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
                 db.ref('rooms/' + cloudRoomId).remove(); saveLayoutOrder(); 
                 
-                db.ref('rooms/' + cloudRoomId + '/command').on('child_added', (snap) => { const cmdData = snap.val(); if(cmdData && cmdData.cmd) { sendBluetoothCommand(cmdData.cmd); parseTelemetry(cmdData.cmd); } });
+                db.ref('rooms/' + cloudRoomId + '/command').on('child_added', (snap) => { 
+                    const cmdData = snap.val(); 
+                    if(cmdData && cmdData.cmd) { 
+                        // UPGRADED: Host intercepts POS1/POS2 to handle slow interpolation itself!
+                        if (cmdData.cmd.includes(':POS1')) { setServoPos(cmdData.cmd.split(':')[0], 1); }
+                        else if (cmdData.cmd.includes(':POS2')) { setServoPos(cmdData.cmd.split(':')[0], 2); }
+                        else {
+                            sendBluetoothCommand(cmdData.cmd); 
+                            parseTelemetry(cmdData.cmd); 
+                        }
+                    } 
+                });
                 cloudInterval = setInterval(syncCloud, 400); appendTerminal(`Cloud stream active. Room ID: ${cloudRoomId}`);
             } else {
                 btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
@@ -402,8 +444,12 @@
                     } else if (info.type === 'digital' && info.mode === 'OUT') {
                         cardData.btnOff = document.getElementById(`btn-off-${id}`)?.value || "OFF"; cardData.btnOn = document.getElementById(`btn-on-${id}`)?.value || "ON";
                     } else if (info.type === 'servo') {
-                        cardData.pos1Val = document.getElementById(`pos1-val-${id}`)?.value || 0; cardData.pos2Val = document.getElementById(`pos2-val-${id}`)?.value || 180;
-                        cardData.btnPos1 = document.getElementById(`btn-pos1-${id}`)?.value || "Pos 1"; cardData.btnPos2 = document.getElementById(`btn-pos2-${id}`)?.value || "Pos 2";
+                        cardData.pos1Val = document.getElementById(`pos1-val-${id}`)?.value || 0; 
+                        cardData.pos2Val = document.getElementById(`pos2-val-${id}`)?.value || 180;
+                        cardData.pos1Spd = document.getElementById(`pos1-spd-${id}`)?.value || 0; 
+                        cardData.pos2Spd = document.getElementById(`pos2-spd-${id}`)?.value || 0;
+                        cardData.btnPos1 = document.getElementById(`btn-pos1-${id}`)?.value || "Pos 1"; 
+                        cardData.btnPos2 = document.getElementById(`btn-pos2-${id}`)?.value || "Pos 2";
                     } else if (info.type === 'motor') {
                         cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
                     }
