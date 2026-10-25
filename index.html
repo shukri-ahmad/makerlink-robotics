@@ -113,14 +113,6 @@
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
-        function getAnalogOutColor(val) {
-            let r = Math.min(1, Math.max(0, val / 1023));
-            let red = Math.round(100 - r * 41);
-            let green = Math.round(116 + r * 14);
-            let blue = Math.round(139 + r * 107);
-            return `rgb(${red}, ${green}, ${blue})`;
-        }
-
         function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => { return { id: c.id.replace('card-', ''), width: c.style.width || '' }; }); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } }
         function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); }
         function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') || '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } }
@@ -345,28 +337,26 @@
             }
         }
         
-        // UPGRADED: Properly handle negative numbers by using Math.abs() before clamping!
         function setMotor(id, action) { 
             let val = 0; 
+            let displayStr = 'STOP (0)';
+
             if (action === 'ccw') { 
-                let spd = Math.abs(parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0); 
-                val = -(spd > 255 ? 255 : spd); 
+                let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; 
+                spd = Math.abs(spd);
+                spd = spd > 255 ? 255 : spd;
+                val = -spd; 
+                displayStr = spd > 0 ? `CCW (${spd})` : 'STOP (0)';
             } else if (action === 'cw') { 
-                let spd = Math.abs(parseInt(document.getElementById(`cw-spd-${id}`).value) || 0); 
-                val = (spd > 255 ? 255 : spd); 
+                let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; 
+                spd = Math.abs(spd);
+                spd = spd > 255 ? 255 : spd;
+                val = spd; 
+                displayStr = spd > 0 ? `CW (${spd})` : 'STOP (0)';
             } 
             
-            // SWAP Physical Motor Values for M1 and M2 on Motion:Bit!
+            // Invert the physical signal sent to Cytron board for M1 & M2
             if (id === 'M1' || id === 'M2') { val = -val; }
-
-            let displayStr = 'STOP (0)';
-            if (val !== 0) {
-                if (id === 'M1' || id === 'M2') {
-                    displayStr = val < 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
-                } else {
-                    displayStr = val > 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
-                }
-            }
 
             document.getElementById(`val-${id}`).innerText = displayStr; 
             advancedData[id] = val; 
@@ -433,11 +423,10 @@
                     if (el) { 
                         let displayStr = 'STOP (0)';
                         if (valNum !== 0) {
-                            if (id === 'M1' || id === 'M2') {
-                                displayStr = valNum < 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
-                            } else {
-                                displayStr = valNum > 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
-                            }
+                            // Undo the physical inversion so the UI displays the logical state
+                            let logicalVal = valNum;
+                            if (id === 'M1' || id === 'M2') { logicalVal = -valNum; }
+                            displayStr = logicalVal > 0 ? `CW (${Math.abs(logicalVal)})` : `CCW (${Math.abs(logicalVal)})`;
                         }
                         el.innerText = displayStr; 
                     } 
@@ -505,7 +494,6 @@
                         cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; 
                         cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; 
                         cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
-                        // UPGRADED: Save with Math.abs() to ensure clean Sync
                         cardData.cwSpd = Math.abs(document.getElementById(`cw-spd-${id}`)?.value || 255);
                         cardData.ccwSpd = Math.abs(document.getElementById(`ccw-spd-${id}`)?.value || 255);
                     }
