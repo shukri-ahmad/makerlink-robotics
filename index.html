@@ -267,8 +267,22 @@
                 html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
             }
             else if (type === 'motor') {
-                html += `<div id="val-${id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
-                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="255" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="255" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
+                // FIXED: Start values properly inject into the Motor UI
+                let mStart = startVals && startVals[0] !== undefined ? Number(startVals[0]) : 0;
+                let mCW = startVals && startVals[1] !== undefined ? startVals[1] : 255;
+                let mCCW = startVals && startVals[2] !== undefined ? startVals[2] : 255;
+                
+                let mDisplayStr = 'STOP (0)';
+                if (mStart !== 0) {
+                    if (id === 'M1' || id === 'M2') {
+                        mDisplayStr = mStart < 0 ? `CW (${Math.abs(mStart)})` : `CCW (${Math.abs(mStart)})`;
+                    } else {
+                        mDisplayStr = mStart > 0 ? `CW (${Math.abs(mStart)})` : `CCW (${Math.abs(mStart)})`;
+                    }
+                }
+
+                html += `<div id="val-${id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">${mDisplayStr}</div>
+                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="${mCCW}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="${mCW}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
                          <div class="flex flex-col gap-2 w-full mt-auto">
                              <div class="flex justify-center gap-6 w-full">
                                  <input type="text" id="btn-ccw-${id}" value="⏪ CCW" readonly onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="ui-btn-editable w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer text-center focus:outline-none truncate">
