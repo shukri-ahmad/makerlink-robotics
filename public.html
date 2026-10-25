@@ -130,12 +130,13 @@
 
         function sendRemoteCommand(cmd) { if(!currentRoom) return; db.ref('rooms/' + currentRoom + '/command').push({ cmd: cmd, ts: Date.now() }); }
         
+        // UPGRADED: Same Math.abs() fix applied to Public Motor Control
         function sendMotorRemoteCommand(id, action) {
             let card = publicCardData[id];
             if (!card) return;
             
-            let cwSpd = card.cwSpd !== undefined ? parseInt(card.cwSpd) : 255;
-            let ccwSpd = card.ccwSpd !== undefined ? parseInt(card.ccwSpd) : 255;
+            let cwSpd = Math.abs(card.cwSpd !== undefined ? parseInt(card.cwSpd) : 255);
+            let ccwSpd = Math.abs(card.ccwSpd !== undefined ? parseInt(card.ccwSpd) : 255);
             let val = 0;
             
             if (action === 'cw') val = cwSpd;
