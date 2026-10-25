@@ -141,12 +141,10 @@
             if (action === 'cw') val = cwSpd;
             else if (action === 'ccw') val = -ccwSpd;
             
-            // SWAP Physical Motor Values for M1 and M2
             if (id === 'M1' || id === 'M2') { val = -val; }
             
             sendRemoteCommand(`${id}:${val}`);
             
-            // Optimistic UI update
             let displayStr = 'STOP (0)';
             if (val !== 0) {
                 if (id === 'M1' || id === 'M2') {
@@ -239,7 +237,17 @@
                     } else if (card.type === 'text') {
                         html += `<div id="val-${card.id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words"></div>`;
                     } else if (card.type === 'motor') {
-                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-6 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
+                        let mStart = card.val !== undefined ? Number(card.val) : 0;
+                        let mDisplayStr = 'STOP (0)';
+                        if (mStart !== 0) {
+                            if (card.id === 'M1' || card.id === 'M2') {
+                                mDisplayStr = mStart < 0 ? `CW (${Math.abs(mStart)})` : `CCW (${Math.abs(mStart)})`;
+                            } else {
+                                mDisplayStr = mStart > 0 ? `CW (${Math.abs(mStart)})` : `CCW (${Math.abs(mStart)})`;
+                            }
+                        }
+                        
+                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-6 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">${mDisplayStr}</div>
                                  <div class="flex flex-col gap-2 w-full mt-auto">
                                      <div class="flex justify-center gap-6 w-full">
                                          <button id="btn-ccw-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'ccw')" class="w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCcw || "⏪ CCW"}</button>
