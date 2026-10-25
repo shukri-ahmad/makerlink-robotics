@@ -48,7 +48,7 @@
         </div>
         <div class="flex flex-wrap gap-3 justify-center">
             <button id="btnConnect" onclick="connectBluetooth()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-lg">🔌 Connect</button>
-            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">✏️ Edit Layout</button>
+            <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">🔒 Lock UI</button>
             <button id="btn-cloud" onclick="toggleCloud()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">☁️ Go Public</button>
             <button id="btn-clear" onclick="clearDashboard()" class="bg-red-900 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[130px] shadow-lg">🗑️ Clear</button>
         </div>
@@ -113,14 +113,6 @@
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
-        function getAnalogOutColor(val) {
-            let r = Math.min(1, Math.max(0, val / 1023));
-            let red = Math.round(100 - r * 41);
-            let green = Math.round(116 + r * 14);
-            let blue = Math.round(139 + r * 107);
-            return `rgb(${red}, ${green}, ${blue})`;
-        }
-
         function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => { return { id: c.id.replace('card-', ''), width: c.style.width || '' }; }); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } }
         function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); }
         function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') || '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } }
@@ -166,10 +158,10 @@
             isEditMode = !isEditMode; sortable.option("disabled", !isEditMode); 
             const btn = document.getElementById('btn-edit');
             if (isEditMode) {
-                document.body.classList.add('is-editing'); btn.innerHTML = "💾 Save Layout"; btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
+                document.body.classList.add('is-editing'); btn.innerHTML = "🔓 Edit UI & Rename"; btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
                 document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.removeAttribute('readonly'); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.remove('cursor-pointer'); el.classList.add('cursor-text', 'border-yellow-400', 'border-dashed'); } });
             } else {
-                document.body.classList.remove('is-editing'); btn.innerHTML = "✏️ Edit Layout"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
+                document.body.classList.remove('is-editing'); btn.innerHTML = "🔒 Lock UI"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
                 document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.setAttribute('readonly', true); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.add('cursor-pointer'); el.classList.remove('cursor-text', 'border-yellow-400', 'border-dashed'); } });
                 saveCustomLabels(); saveLayoutOrder(); 
             }
@@ -283,14 +275,14 @@
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">SPD(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
@@ -345,32 +337,7 @@
             }
         }
         
-        function setMotor(id, action) { 
-            let val = 0; 
-            if (action === 'ccw') { 
-                let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; 
-                val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
-            } else if (action === 'cw') { 
-                let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; 
-                val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
-            } 
-            
-            // SWAP Physical Motor Values for M1 and M2 on Motion:Bit!
-            if (id === 'M1' || id === 'M2') { val = -val; }
-
-            let displayStr = 'STOP (0)';
-            if (val !== 0) {
-                if (id === 'M1' || id === 'M2') {
-                    displayStr = val < 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
-                } else {
-                    displayStr = val > 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
-                }
-            }
-
-            document.getElementById(`val-${id}`).innerText = displayStr; 
-            advancedData[id] = val; 
-            sendBluetoothCommand(`${id}:${val}`); 
-        }
+        function setMotor(id, action) { let val = 0; if (action === 'ccw') { let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } else if (action === 'cw') { let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } let displayStr = val > 0 ? `CW (${val})` : (val < 0 ? `CCW (${val})` : 'STOP (0)'); document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`); }
 
         async function sendBluetoothCommand(cmd) { if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; } commandQueue.push(cmd); processCommandQueue(); }
         async function processCommandQueue() { if (isTransmitting || commandQueue.length === 0) return; isTransmitting = true; const cmd = commandQueue.shift(); try { let data = new TextEncoder().encode(cmd + '\n'); if (txCharacteristic.properties.writeWithoutResponse) { await txCharacteristic.writeValueWithoutResponse(data); } else { await txCharacteristic.writeValue(data); } } catch (err) {} finally { isTransmitting = false; if (commandQueue.length > 0) { setTimeout(processCommandQueue, 10); } } }
@@ -424,20 +391,7 @@
                 } 
                 else if (cardData.type === 'analog' && cardData.mode === 'OUT') { updateAnalogOutUI(id, valNum); }
                 else if (cardData.type === 'digital') { updateDigitalUI(id, valNum); }
-                else if (cardData.type === 'motor') { 
-                    let el = document.getElementById(`val-${id}`); 
-                    if (el) { 
-                        let displayStr = 'STOP (0)';
-                        if (valNum !== 0) {
-                            if (id === 'M1' || id === 'M2') {
-                                displayStr = valNum < 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
-                            } else {
-                                displayStr = valNum > 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
-                            }
-                        }
-                        el.innerText = displayStr; 
-                    } 
-                }
+                else if (cardData.type === 'motor') { let el = document.getElementById(`val-${id}`); if (el) { el.innerText = valNum > 0 ? `CW (${valNum})` : (valNum < 0 ? `CCW (${valNum})` : 'STOP (0)'); } }
                 else if (cardData.type === 'servo') { let el = document.getElementById(`slider-${id}`); if(el) el.value = valNum; let valEl = document.getElementById(`val-${id}`); if(valEl) valEl.innerText = valNum + '°'; }
             }
         }
@@ -478,6 +432,7 @@
                 if(cardVisibility[id] === false) return; 
 
                 if(info) {
+                    // UPGRADED: Added robust null fallback for Firebase protection
                     let cardData = { id: id, type: info.type, mode: info.mode || "", val: advancedData[id] !== undefined ? advancedData[id] : 0 };
                     cardData.title = document.getElementById(`title-${id}`)?.value || "Label";
                     
@@ -498,11 +453,7 @@
                         cardData.btnPos1 = document.getElementById(`btn-pos1-${id}`)?.value || "Pos 1"; 
                         cardData.btnPos2 = document.getElementById(`btn-pos2-${id}`)?.value || "Pos 2";
                     } else if (info.type === 'motor') {
-                        cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; 
-                        cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; 
-                        cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
-                        cardData.cwSpd = document.getElementById(`cw-spd-${id}`)?.value || 255;
-                        cardData.ccwSpd = document.getElementById(`ccw-spd-${id}`)?.value || 255;
+                        cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
                     }
                     payload.push(cardData);
                 }
