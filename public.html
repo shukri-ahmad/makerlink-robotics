@@ -109,7 +109,26 @@
                 else { termSec.style.display = 'flex'; }
             });
 
-            db.ref('rooms/' + currentRoom + '/state').on('value', (snap) => { const data = snap.val(); if(data) { renderSharedCards(data); } else { document.getElementById('empty-state').classList.remove('hidden'); document.getElementById('dashboard-grid').classList.add('hidden'); document.getElementById('dashboard-grid').classList.remove('flex'); document.getElementById('empty-state').innerHTML = `<span class="text-6xl">📡</span><p>Room ${roomId} is empty or closed.</p>`; } });
+            db.ref('rooms/' + currentRoom + '/state').on('value', (snap) => { 
+                let data = snap.val(); 
+                if(data) { 
+                    if (data.empty) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                        document.getElementById('dashboard-grid').classList.add('hidden');
+                        document.getElementById('empty-state').innerHTML = `<span class="text-6xl">📡</span><p>Host is connected, but no cards are visible.</p>`;
+                        return;
+                    }
+                    // FIREBASE FIX: Sometimes Firebase turns Arrays into Objects during updates. We forcefully map it back.
+                    if (!Array.isArray(data)) data = Object.values(data);
+                    renderSharedCards(data); 
+                } else { 
+                    document.getElementById('empty-state').classList.remove('hidden'); 
+                    document.getElementById('dashboard-grid').classList.add('hidden'); 
+                    document.getElementById('dashboard-grid').classList.remove('flex'); 
+                    document.getElementById('empty-state').innerHTML = `<span class="text-6xl">📡</span><p>Room ${roomId} is empty or closed.</p>`; 
+                } 
+            });
+            
             db.ref('rooms/' + currentRoom + '/logs').on('child_added', (snap) => { const log = snap.val(); if (log) appendTerminal(log.msg, log.time, log.color); });
             
             db.ref('rooms/' + currentRoom + '/layout').on('value', (snap) => { 
