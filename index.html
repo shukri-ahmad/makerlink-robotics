@@ -268,7 +268,7 @@
             }
             else if (type === 'motor') {
                 html += `<div id="val-${id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
-                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="255" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="255" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
+                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="${startVals[0] !== undefined ? startVals[0] : 255}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="${startVals[1] !== undefined ? startVals[1] : 255}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
                          <div class="flex flex-col gap-2 w-full mt-auto">
                              <div class="flex justify-center gap-6 w-full">
                                  <input type="text" id="btn-ccw-${id}" value="⏪ CCW" readonly onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="ui-btn-editable w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer text-center focus:outline-none truncate">
@@ -282,14 +282,14 @@
                          <div class="flex gap-3 w-full">
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] !== undefined ? startVals[1] : 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] !== undefined ? startVals[2] : 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
@@ -355,7 +355,6 @@
                 val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
             } 
             
-            // SWAP Physical Motor Values for M1 and M2 on Motion:Bit!
             if (id === 'M1' || id === 'M2') { val = -val; }
 
             let displayStr = 'STOP (0)';
@@ -400,9 +399,9 @@
                 if (line.startsWith("LOG:")) { appendTerminal(line.substring(4)); } 
                 else if (line.startsWith("INIT:")) {
                     let params = line.substring(5).split(","); let id = params[0];
-                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[2], params[3], params[4]]);
-                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [params[2], params[3], params[4]]);
-                    else if(id.startsWith("T")) createPlayingCard(id, 'text', null, [params[2]]);
+                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[1], params[2]]);
+                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [90, params[1], params[2]]);
+                    else if(id.startsWith("T")) createPlayingCard(id, 'text', null, [params[1]]);
                     else if(id.startsWith("A")) createPlayingCard(id, 'analog', params[1], [params[2]]);
                     else if(id.startsWith("D")) createPlayingCard(id, 'digital', params[1], [params[2]]);
                 } else if (line !== "") { parseTelemetry(line); }
