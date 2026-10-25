@@ -267,7 +267,6 @@
                 html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
             }
             else if (type === 'motor') {
-                // FIXED: Start values properly inject into the Motor UI
                 let mStart = startVals && startVals[0] !== undefined ? Number(startVals[0]) : 0;
                 let mCW = startVals && startVals[1] !== undefined ? startVals[1] : 255;
                 let mCCW = startVals && startVals[2] !== undefined ? startVals[2] : 255;
@@ -402,7 +401,15 @@
 
                 bluetoothDevice.addEventListener('gattserverdisconnected', () => {
                     const btn = document.getElementById("btnConnect"); btn.innerHTML = "🔌 Connect"; btn.classList.replace("bg-green-600", "bg-blue-600"); btn.classList.replace("hover:bg-green-500", "hover:bg-blue-500");
-                    showMsg("Micro:bit disconnected!"); appendTerminal("Error: Bluetooth connection lost.");
+                    showMsg("Micro:bit disconnected!"); 
+                    appendTerminal("Error: Bluetooth connection lost. Clearing dashboard.");
+                    
+                    // NEW: Instantly wipe UI on disconnect, but keep local storage intact!
+                    commandQueue = [];
+                    isTransmitting = false;
+                    gridEl.innerHTML = ''; 
+                    activeCardTypes = {}; 
+                    if (isCloudActive) syncCloud(); // Syncs empty state to Public UI
                 });
             } catch (error) { showMsg("Connection failed or cancelled. Check console (F12) for details."); }
         }
