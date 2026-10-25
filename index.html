@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MakerLink Host</title>
+    <!-- Favicon Added -->
+    <link rel="icon" href="MakerLink Logo.jpg" type="image/jpeg">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
@@ -132,7 +135,6 @@
                 timerWorker.postMessage({ action: 'stop', id: id });
             }
         };
-        // ---------------------------------
         
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -277,7 +279,6 @@
             
             let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
             
-            // Text Cards are now dynamically resizable in Edit Mode!
             let isResizable = ((type === 'analog' && mode === 'IN') || type === 'text') ? 'resize-x-card' : '';
             card.className = `maker-card ${isResizable} bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg transition-colors relative z-10`; 
             card.id = `card-${id}`;
@@ -298,7 +299,7 @@
             let visClass = cardVisibility[id] !== false ? "bg-blue-900/50 text-blue-400 border-blue-700" : "bg-slate-700/50 text-slate-400 border-slate-600";
             headerBtnsHTML += `<button id="vis-btn-${id}" onclick="toggleVisibility('${id}')" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors ${visClass}" title="Toggle Public Visibility">${visLabel}</button>`;
 
-            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div><div class="flex items-center">${headerBtnsHTML}</div></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
+            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div><div class="p-4 flex-1 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
 
             if (type === 'analog' && mode === 'IN') {
                 html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
@@ -327,7 +328,6 @@
                          </div>`;
             } 
             else if (type === 'text') {
-                // Fixed: Added internal custom scrollbar structure for long strings
                 let displayTxt = startVals && startVals[0] !== undefined ? startVals[0] : "";
                 html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
             }
@@ -393,7 +393,7 @@
         function updateSensorChartConfig(id) { const yMin = document.getElementById(`ymin-${id}`).value; const yMax = document.getElementById(`ymax-${id}`).value; if(sensorCharts[id]) { if (yMin === "") delete sensorCharts[id].options.scales.y.min; else sensorCharts[id].options.scales.y.min = parseFloat(yMin); if (yMax === "") delete sensorCharts[id].options.scales.y.max; else sensorCharts[id].options.scales.y.max = parseFloat(yMax); sensorCharts[id].update(); } }
         function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const xmaxEl = document.getElementById(`xmax-${id}`); const maxPts = (xmaxEl && xmaxEl.value !== "") ? parseInt(xmaxEl.value) : 0; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
 
-        function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val) || val; } // Supports parsing text properly
+        function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val) || val; }
         
         function setServoPos(id, posNum) { 
             let targetVal = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; 
