@@ -268,7 +268,7 @@
             }
             else if (type === 'motor') {
                 html += `<div id="val-${id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
-                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="${startVals[0] !== undefined ? startVals[0] : 255}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="${startVals[1] !== undefined ? startVals[1] : 255}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
+                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="${startVals[0] !== undefined ? Math.abs(startVals[0]) : 255}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="${startVals[1] !== undefined ? Math.abs(startVals[1]) : 255}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
                          <div class="flex flex-col gap-2 w-full mt-auto">
                              <div class="flex justify-center gap-6 w-full">
                                  <input type="text" id="btn-ccw-${id}" value="⏪ CCW" readonly onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="ui-btn-editable w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer text-center focus:outline-none truncate">
@@ -345,16 +345,18 @@
             }
         }
         
+        // UPGRADED: Properly handle negative numbers by using Math.abs() before clamping!
         function setMotor(id, action) { 
             let val = 0; 
             if (action === 'ccw') { 
-                let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; 
-                val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
+                let spd = Math.abs(parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0); 
+                val = -(spd > 255 ? 255 : spd); 
             } else if (action === 'cw') { 
-                let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; 
-                val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
+                let spd = Math.abs(parseInt(document.getElementById(`cw-spd-${id}`).value) || 0); 
+                val = (spd > 255 ? 255 : spd); 
             } 
             
+            // SWAP Physical Motor Values for M1 and M2 on Motion:Bit!
             if (id === 'M1' || id === 'M2') { val = -val; }
 
             let displayStr = 'STOP (0)';
@@ -400,7 +402,6 @@
                 else if (line.startsWith("INIT:")) {
                     let params = line.substring(5).split(","); 
                     let id = params[0];
-                    // UPGRADED: Extracts ONLY the pure numbers from the MakeCode string
                     let numVals = params.slice(1).filter(x => !isNaN(x) && x.trim() !== "");
 
                     if(id.startsWith("M")) createPlayingCard(id, 'motor', null, numVals);
@@ -504,8 +505,9 @@
                         cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; 
                         cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; 
                         cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
-                        cardData.cwSpd = document.getElementById(`cw-spd-${id}`)?.value || 255;
-                        cardData.ccwSpd = document.getElementById(`ccw-spd-${id}`)?.value || 255;
+                        // UPGRADED: Save with Math.abs() to ensure clean Sync
+                        cardData.cwSpd = Math.abs(document.getElementById(`cw-spd-${id}`)?.value || 255);
+                        cardData.ccwSpd = Math.abs(document.getElementById(`ccw-spd-${id}`)?.value || 255);
                     }
                     payload.push(cardData);
                 }
