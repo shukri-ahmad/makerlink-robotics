@@ -398,9 +398,13 @@
                 let line = lines.shift().trim();
                 if (line.startsWith("LOG:")) { appendTerminal(line.substring(4)); } 
                 else if (line.startsWith("INIT:")) {
-                    let params = line.substring(5).split(","); let id = params[0];
-                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[1], params[2]]);
-                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [90, params[1], params[2]]);
+                    let params = line.substring(5).split(","); 
+                    let id = params[0];
+                    // UPGRADED: Extracts ONLY the pure numbers from the MakeCode string
+                    let numVals = params.slice(1).filter(x => !isNaN(x) && x.trim() !== "");
+
+                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, numVals);
+                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, numVals.length >= 3 ? numVals : [90, 0, 180]);
                     else if(id.startsWith("T")) createPlayingCard(id, 'text', null, [params[1]]);
                     else if(id.startsWith("A")) createPlayingCard(id, 'analog', params[1], [params[2]]);
                     else if(id.startsWith("D")) createPlayingCard(id, 'digital', params[1], [params[2]]);
