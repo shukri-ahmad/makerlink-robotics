@@ -113,6 +113,14 @@
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
+        function getAnalogOutColor(val) {
+            let r = Math.min(1, Math.max(0, val / 1023));
+            let red = Math.round(100 - r * 41);
+            let green = Math.round(116 + r * 14);
+            let blue = Math.round(139 + r * 107);
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
         function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => { return { id: c.id.replace('card-', ''), width: c.style.width || '' }; }); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } }
         function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); }
         function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') || '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } }
@@ -259,20 +267,8 @@
                 html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
             }
             else if (type === 'motor') {
-                // Shifted mappings: 0=initSpd, 1=ccwSpd, 2=cwSpd
-                let initVal = startVals[0] !== undefined ? parseInt(startVals[0]) : 0;
-                let ccwVal = startVals[1] !== undefined ? Math.abs(startVals[1]) : 255;
-                let cwVal = startVals[2] !== undefined ? Math.abs(startVals[2]) : 255;
-
-                let displayStr = 'STOP (0)';
-                if (initVal !== 0) {
-                    let logicalVal = initVal;
-                    if (id === 'M1' || id === 'M2') logicalVal = -initVal;
-                    displayStr = logicalVal > 0 ? `CW (${Math.abs(logicalVal)})` : `CCW (${Math.abs(logicalVal)})`;
-                }
-
-                html += `<div id="val-${id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">${displayStr}</div>
-                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="${ccwVal}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="${cwVal}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
+                html += `<div id="val-${id}" class="text-2xl font-mono text-orange-400 font-bold mb-4 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
+                         <div class="flex gap-2 w-full mb-4"><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CCW SPD</label><input type="number" id="ccw-spd-${id}" value="255" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div><div class="flex-1 flex flex-col"><label class="text-[10px] text-slate-400 mb-1 text-center font-bold">CW SPD</label><input type="number" id="cw-spd-${id}" value="255" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded-md px-1 py-1.5 text-center text-sm font-mono text-orange-400 shadow-inner"></div></div>
                          <div class="flex flex-col gap-2 w-full mt-auto">
                              <div class="flex justify-center gap-6 w-full">
                                  <input type="text" id="btn-ccw-${id}" value="⏪ CCW" readonly onclick="if(!isEditMode) setMotor('${id}', 'ccw')" class="ui-btn-editable w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg transition-colors border border-yellow-700/50 cursor-pointer text-center focus:outline-none truncate">
@@ -286,14 +282,14 @@
                          <div class="flex gap-3 w-full">
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] !== undefined ? startVals[1] : 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] !== undefined ? startVals[2] : 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
+                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
                                      <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
                                  </div>
                                  <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
@@ -351,23 +347,25 @@
         
         function setMotor(id, action) { 
             let val = 0; 
-            let displayStr = 'STOP (0)';
-
             if (action === 'ccw') { 
                 let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; 
-                spd = Math.abs(spd);
-                spd = spd > 255 ? 255 : spd;
-                val = -spd; 
-                displayStr = spd > 0 ? `CCW (${spd})` : 'STOP (0)';
+                val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
             } else if (action === 'cw') { 
                 let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; 
-                spd = Math.abs(spd);
-                spd = spd > 255 ? 255 : spd;
-                val = spd; 
-                displayStr = spd > 0 ? `CW (${spd})` : 'STOP (0)';
+                val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
             } 
             
+            // SWAP Physical Motor Values for M1 and M2 on Motion:Bit!
             if (id === 'M1' || id === 'M2') { val = -val; }
+
+            let displayStr = 'STOP (0)';
+            if (val !== 0) {
+                if (id === 'M1' || id === 'M2') {
+                    displayStr = val < 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
+                } else {
+                    displayStr = val > 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
+                }
+            }
 
             document.getElementById(`val-${id}`).innerText = displayStr; 
             advancedData[id] = val; 
@@ -401,13 +399,10 @@
                 let line = lines.shift().trim();
                 if (line.startsWith("LOG:")) { appendTerminal(line.substring(4)); } 
                 else if (line.startsWith("INIT:")) {
-                    let params = line.substring(5).split(","); 
-                    let id = params[0];
-                    let numVals = params.slice(1).filter(x => !isNaN(x) && x.trim() !== "");
-
-                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, numVals);
-                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, numVals.length >= 3 ? numVals : [90, 0, 180]);
-                    else if(id.startsWith("T")) createPlayingCard(id, 'text', null, [params[1]]);
+                    let params = line.substring(5).split(","); let id = params[0];
+                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[2], params[3], params[4]]);
+                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [params[2], params[3], params[4]]);
+                    else if(id.startsWith("T")) createPlayingCard(id, 'text', null, [params[2]]);
                     else if(id.startsWith("A")) createPlayingCard(id, 'analog', params[1], [params[2]]);
                     else if(id.startsWith("D")) createPlayingCard(id, 'digital', params[1], [params[2]]);
                 } else if (line !== "") { parseTelemetry(line); }
@@ -434,9 +429,11 @@
                     if (el) { 
                         let displayStr = 'STOP (0)';
                         if (valNum !== 0) {
-                            let logicalVal = valNum;
-                            if (id === 'M1' || id === 'M2') { logicalVal = -valNum; }
-                            displayStr = logicalVal > 0 ? `CW (${Math.abs(logicalVal)})` : `CCW (${Math.abs(logicalVal)})`;
+                            if (id === 'M1' || id === 'M2') {
+                                displayStr = valNum < 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                            } else {
+                                displayStr = valNum > 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                            }
                         }
                         el.innerText = displayStr; 
                     } 
@@ -504,8 +501,8 @@
                         cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; 
                         cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; 
                         cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
-                        cardData.cwSpd = Math.abs(document.getElementById(`cw-spd-${id}`)?.value || 255);
-                        cardData.ccwSpd = Math.abs(document.getElementById(`ccw-spd-${id}`)?.value || 255);
+                        cardData.cwSpd = document.getElementById(`cw-spd-${id}`)?.value || 255;
+                        cardData.ccwSpd = document.getElementById(`ccw-spd-${id}`)?.value || 255;
                     }
                     payload.push(cardData);
                 }
