@@ -68,7 +68,10 @@
     <script>
         const firebaseConfig = { apiKey: "AIzaSyAMLoInCYEYyT97RtkjW6rnT0lKTu7_xik", authDomain: "makerlink-b575b.firebaseapp.com", databaseURL: "https://makerlink-b575b-default-rtdb.asia-southeast1.firebasedatabase.app", projectId: "makerlink-b575b", storageBucket: "makerlink-b575b.firebasestorage.app" };
         firebase.initializeApp(firebaseConfig); const db = firebase.database();
-        let currentRoom = null; const sensorCharts = {};
+        
+        let currentRoom = null; 
+        const sensorCharts = {};
+        let publicCardData = {}; 
 
         function getAnalogColor(val) {
             let r = Math.min(1, Math.max(0, val / 1023));
@@ -126,6 +129,35 @@
         }
 
         function sendRemoteCommand(cmd) { if(!currentRoom) return; db.ref('rooms/' + currentRoom + '/command').push({ cmd: cmd, ts: Date.now() }); }
+        
+        function sendMotorRemoteCommand(id, action) {
+            let card = publicCardData[id];
+            if (!card) return;
+            
+            let cwSpd = card.cwSpd !== undefined ? parseInt(card.cwSpd) : 255;
+            let ccwSpd = card.ccwSpd !== undefined ? parseInt(card.ccwSpd) : 255;
+            let val = 0;
+            
+            if (action === 'cw') val = cwSpd;
+            else if (action === 'ccw') val = -ccwSpd;
+            
+            // SWAP Physical Motor Values for M1 and M2
+            if (id === 'M1' || id === 'M2') { val = -val; }
+            
+            sendRemoteCommand(`${id}:${val}`);
+            
+            // Optimistic UI update
+            let displayStr = 'STOP (0)';
+            if (val !== 0) {
+                if (id === 'M1' || id === 'M2') {
+                    displayStr = val < 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
+                } else {
+                    displayStr = val > 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
+                }
+            }
+            let el = document.getElementById(`val-${id}`);
+            if (el) el.innerText = displayStr;
+        }
 
         function updateDigitalUI(id, val) {
             let v = Number(val); let valIn = document.getElementById(`val-${id}`);
@@ -160,8 +192,9 @@
             document.querySelectorAll('[id^="public-card-"]').forEach(child => { if (!currentCardIds.includes(child.id)) child.remove(); });
 
             sharedCards.forEach(card => {
-                let cardEl = document.getElementById(`public-card-${card.id}`);
+                publicCardData[card.id] = card; 
                 
+                let cardEl = document.getElementById(`public-card-${card.id}`);
                 let isOutput = (card.type === 'analog' && card.mode === 'OUT') || (card.type === 'digital' && card.mode === 'OUT') || card.type === 'motor' || card.type === 'servo';
                 
                 if (!cardEl) {
@@ -209,25 +242,25 @@
                         html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-6 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
                                  <div class="flex flex-col gap-2 w-full mt-auto">
                                      <div class="flex justify-center gap-6 w-full">
-                                         <button id="btn-ccw-${card.id}" onclick="sendRemoteCommand('${card.id}:-255')" class="w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCcw || "⏪ CCW"}</button>
-                                         <button id="btn-cw-${card.id}" onclick="sendRemoteCommand('${card.id}:255')" class="w-28 bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCw || "CW ⏩"}</button>
+                                         <button id="btn-ccw-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'ccw')" class="w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCcw || "⏪ CCW"}</button>
+                                         <button id="btn-cw-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'cw')" class="w-28 bg-green-600 hover:bg-green-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCw || "CW ⏩"}</button>
                                      </div>
-                                     <button id="btn-stop-${card.id}" onclick="sendRemoteCommand('${card.id}:0')" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnStop || "⏹️ STOP"}</button>
+                                     <button id="btn-stop-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'stop')" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnStop || "⏹️ STOP"}</button>
                                  </div>`;
                     } else if (card.type === 'servo') {
-                        html += `<div id="val-${card.id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0] || 90}°</div><input type="range" id="slider-${card.id}" min="0" max="180" value="${startVals[0] || 90}" oninput="document.getElementById('val-${card.id}').innerText=this.value+'°'; sendRemoteCommand('${card.id}:'+this.value);" class="w-full mb-4 mt-auto">
+                        html += `<div id="val-${card.id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${card.val !== undefined ? card.val : 90}°</div><input type="range" id="slider-${card.id}" min="0" max="180" value="${card.val !== undefined ? card.val : 90}" oninput="document.getElementById('val-${card.id}').innerText=this.value+'°'; sendRemoteCommand('${card.id}:'+this.value);" class="w-full mb-4 mt-auto">
                                  <div class="flex gap-3 w-full">
                                      <div class="flex-1 flex flex-col gap-1">
                                          <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
-                                             <div class="flex-1">ANG: <span class="text-blue-400">${card.pos1Val}</span></div>
-                                             <div class="flex-1">SPD: <span class="text-blue-400">${card.pos1Spd || 0}</span></div>
+                                             <div class="flex-1">ANG: <span class="text-blue-400">${card.pos1Val !== undefined ? card.pos1Val : 0}</span></div>
+                                             <div class="flex-1">DELAY: <span class="text-blue-400">${card.pos1Spd !== undefined ? card.pos1Spd : 0}</span></div>
                                          </div>
                                          <button id="btn-pos1-${card.id}" onclick="sendRemoteCommand('${card.id}:POS1')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos1 || 'Pos 1'}</button>
                                      </div>
                                      <div class="flex-1 flex flex-col gap-1">
                                          <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
-                                             <div class="flex-1">ANG: <span class="text-blue-400">${card.pos2Val}</span></div>
-                                             <div class="flex-1">SPD: <span class="text-blue-400">${card.pos2Spd || 0}</span></div>
+                                             <div class="flex-1">ANG: <span class="text-blue-400">${card.pos2Val !== undefined ? card.pos2Val : 180}</span></div>
+                                             <div class="flex-1">DELAY: <span class="text-blue-400">${card.pos2Spd !== undefined ? card.pos2Spd : 0}</span></div>
                                          </div>
                                          <button id="btn-pos2-${card.id}" onclick="sendRemoteCommand('${card.id}:POS2')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos2 || 'Pos 2'}</button>
                                      </div>
@@ -289,7 +322,20 @@
                         }
                     } else if (card.type === 'analog' && card.mode === 'OUT') { updateAnalogOutUI(card.id, valNum); } 
                     else if (card.type === 'digital') { updateDigitalUI(card.id, valNum); } 
-                    else if (card.type === 'motor') { let el = document.getElementById(`val-${card.id}`); if (el) el.innerText = valNum > 0 ? `CW (${valNum})` : (valNum < 0 ? `CCW (${valNum})` : 'STOP (0)'); } 
+                    else if (card.type === 'motor') { 
+                        let el = document.getElementById(`val-${card.id}`); 
+                        if (el) { 
+                            let displayStr = 'STOP (0)';
+                            if (valNum !== 0) {
+                                if (card.id === 'M1' || card.id === 'M2') {
+                                    displayStr = valNum < 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                                } else {
+                                    displayStr = valNum > 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                                }
+                            }
+                            el.innerText = displayStr; 
+                        } 
+                    }
                     else if (card.type === 'servo') { let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum; let vl = document.getElementById(`val-${card.id}`); if(vl) vl.innerText = valNum + '°'; }
                 }
             });
