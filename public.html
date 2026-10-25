@@ -130,30 +130,30 @@
 
         function sendRemoteCommand(cmd) { if(!currentRoom) return; db.ref('rooms/' + currentRoom + '/command').push({ cmd: cmd, ts: Date.now() }); }
         
-        // UPGRADED: Same Math.abs() fix applied to Public Motor Control
         function sendMotorRemoteCommand(id, action) {
             let card = publicCardData[id];
             if (!card) return;
             
-            let cwSpd = Math.abs(card.cwSpd !== undefined ? parseInt(card.cwSpd) : 255);
-            let ccwSpd = Math.abs(card.ccwSpd !== undefined ? parseInt(card.ccwSpd) : 255);
             let val = 0;
+            let displayStr = 'STOP (0)';
+
+            if (action === 'ccw') { 
+                let spd = card.ccwSpd !== undefined ? Math.abs(parseInt(card.ccwSpd)) : 255;
+                spd = spd > 255 ? 255 : spd;
+                val = -spd; 
+                displayStr = spd > 0 ? `CCW (${spd})` : 'STOP (0)';
+            } else if (action === 'cw') { 
+                let spd = card.cwSpd !== undefined ? Math.abs(parseInt(card.cwSpd)) : 255;
+                spd = spd > 255 ? 255 : spd;
+                val = spd; 
+                displayStr = spd > 0 ? `CW (${spd})` : 'STOP (0)';
+            } 
             
-            if (action === 'cw') val = cwSpd;
-            else if (action === 'ccw') val = -ccwSpd;
-            
+            // Invert the physical signal sent for M1 & M2
             if (id === 'M1' || id === 'M2') { val = -val; }
             
             sendRemoteCommand(`${id}:${val}`);
             
-            let displayStr = 'STOP (0)';
-            if (val !== 0) {
-                if (id === 'M1' || id === 'M2') {
-                    displayStr = val < 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
-                } else {
-                    displayStr = val > 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
-                }
-            }
             let el = document.getElementById(`val-${id}`);
             if (el) el.innerText = displayStr;
         }
@@ -326,11 +326,10 @@
                         if (el) { 
                             let displayStr = 'STOP (0)';
                             if (valNum !== 0) {
-                                if (card.id === 'M1' || card.id === 'M2') {
-                                    displayStr = valNum < 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
-                                } else {
-                                    displayStr = valNum > 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
-                                }
+                                // Undo physical inversion to display logical state
+                                let logicalVal = valNum;
+                                if (card.id === 'M1' || card.id === 'M2') { logicalVal = -valNum; }
+                                displayStr = logicalVal > 0 ? `CW (${Math.abs(logicalVal)})` : `CCW (${Math.abs(logicalVal)})`;
                             }
                             el.innerText = displayStr; 
                         } 
