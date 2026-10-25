@@ -44,7 +44,6 @@
             <div class="flex flex-col justify-center">
                 <div class="flex items-center gap-3">
                     <h1 class="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 leading-tight">MakerLink Host</h1>
-                    <!-- HOST BLUETOOTH PING INDICATOR -->
                     <div id="ping-indicator" class="w-3 h-3 rounded-full bg-slate-700 transition-colors duration-300" title="Bluetooth Activity"></div>
                 </div>
                 <p class="text-emerald-400 text-sm font-bold tracking-wide mt-1">Simplifying cyber-physical prototyping</p>
@@ -93,7 +92,6 @@
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
         
-        // --- WEB WORKER TIMING ENGINE ---
         const workerBlob = new Blob([`
             let intervals = {};
             self.onmessage = function(e) {
@@ -131,7 +129,6 @@
                 timerWorker.postMessage({ action: 'stop', id: id });
             }
         };
-        // ---------------------------------
         
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -148,7 +145,6 @@
             }
         }
 
-        // --- BLUETOOTH PING INDICATOR LOGIC ---
         function pingBluetooth() {
             const p = document.getElementById('ping-indicator');
             if(!p) return;
@@ -381,6 +377,9 @@
             }
             if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0);
             if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
+            
+            // Note: The UI no longer forces its start value onto the hardware here.
+            // It waits for the MakeCode extension to send its true current state right after INIT.
 
             applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); 
         }
@@ -456,7 +455,6 @@
                     showMsg("Micro:bit disconnected!"); 
                     appendTerminal("Error: Bluetooth connection lost. Clearing dashboard.");
                     
-                    // Disconnect Red Ping
                     const p = document.getElementById('ping-indicator');
                     if(p) {
                         clearTimeout(p.timer);
@@ -553,7 +551,6 @@
             const payload = [];
             
             db.ref('rooms/' + cloudRoomId + '/config').set({ terminalVisible: cardVisibility['terminal'] !== false });
-            // Send Heartbeat Pulse
             db.ref('rooms/' + cloudRoomId + '/heartbeat').set(Date.now());
 
             Array.from(gridEl.children).forEach(cardDom => {
