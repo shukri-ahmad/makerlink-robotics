@@ -134,25 +134,27 @@
             let card = publicCardData[id];
             if (!card) return;
             
+            let cwSpd = card.cwSpd !== undefined ? parseInt(card.cwSpd) : 255;
+            let ccwSpd = card.ccwSpd !== undefined ? parseInt(card.ccwSpd) : 255;
             let val = 0;
-            let displayStr = 'STOP (0)';
-
-            if (action === 'ccw') { 
-                let spd = card.ccwSpd !== undefined ? Math.abs(parseInt(card.ccwSpd)) : 255;
-                spd = spd > 255 ? 255 : spd;
-                val = -spd; 
-                displayStr = spd > 0 ? `CCW (${spd})` : 'STOP (0)';
-            } else if (action === 'cw') { 
-                let spd = card.cwSpd !== undefined ? Math.abs(parseInt(card.cwSpd)) : 255;
-                spd = spd > 255 ? 255 : spd;
-                val = spd; 
-                displayStr = spd > 0 ? `CW (${spd})` : 'STOP (0)';
-            } 
             
+            if (action === 'cw') val = cwSpd;
+            else if (action === 'ccw') val = -ccwSpd;
+            
+            // SWAP Physical Motor Values for M1 and M2
             if (id === 'M1' || id === 'M2') { val = -val; }
             
             sendRemoteCommand(`${id}:${val}`);
             
+            // Optimistic UI update
+            let displayStr = 'STOP (0)';
+            if (val !== 0) {
+                if (id === 'M1' || id === 'M2') {
+                    displayStr = val < 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
+                } else {
+                    displayStr = val > 0 ? `CW (${Math.abs(val)})` : `CCW (${Math.abs(val)})`;
+                }
+            }
             let el = document.getElementById(`val-${id}`);
             if (el) el.innerText = displayStr;
         }
@@ -190,7 +192,7 @@
             document.querySelectorAll('[id^="public-card-"]').forEach(child => { if (!currentCardIds.includes(child.id)) child.remove(); });
 
             sharedCards.forEach(card => {
-                publicCardData[card.id] = card; 
+                publicCardData[card.id] = card; // Update public memory cache for dynamic speed syncing
                 
                 let cardEl = document.getElementById(`public-card-${card.id}`);
                 let isOutput = (card.type === 'analog' && card.mode === 'OUT') || (card.type === 'digital' && card.mode === 'OUT') || card.type === 'motor' || card.type === 'servo';
@@ -237,18 +239,7 @@
                     } else if (card.type === 'text') {
                         html += `<div id="val-${card.id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words"></div>`;
                     } else if (card.type === 'motor') {
-                        let initVal = card.val !== undefined ? parseInt(card.val) : 0;
-                        let ccwVal = card.ccwSpd !== undefined ? Math.abs(card.ccwSpd) : 255;
-                        let cwVal = card.cwSpd !== undefined ? Math.abs(card.cwSpd) : 255;
-
-                        let displayStr = 'STOP (0)';
-                        if (initVal !== 0) {
-                            let logicalVal = initVal;
-                            if (card.id === 'M1' || card.id === 'M2') { logicalVal = -initVal; }
-                            displayStr = logicalVal > 0 ? `CW (${Math.abs(logicalVal)})` : `CCW (${Math.abs(logicalVal)})`;
-                        }
-
-                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-6 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">${displayStr}</div>
+                        html += `<div id="val-${card.id}" class="text-2xl font-mono text-orange-400 font-bold mb-6 w-full text-center bg-slate-900 py-2 rounded-lg border border-slate-700 shadow-inner">STOP (0)</div>
                                  <div class="flex flex-col gap-2 w-full mt-auto">
                                      <div class="flex justify-center gap-6 w-full">
                                          <button id="btn-ccw-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'ccw')" class="w-28 bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnCcw || "⏪ CCW"}</button>
@@ -336,14 +327,16 @@
                         if (el) { 
                             let displayStr = 'STOP (0)';
                             if (valNum !== 0) {
-                                let logicalVal = valNum;
-                                if (card.id === 'M1' || card.id === 'M2') { logicalVal = -valNum; }
-                                displayStr = logicalVal > 0 ? `CW (${Math.abs(logicalVal)})` : `CCW (${Math.abs(logicalVal)})`;
+                                if (card.id === 'M1' || card.id === 'M2') {
+                                    displayStr = valNum < 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                                } else {
+                                    displayStr = valNum > 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                                }
                             }
                             el.innerText = displayStr; 
                         } 
                     }
-                    else if (card.type === 'servo') { let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum; let vl = document.getElementById(`val-${card.id}`); if(vl) vl.innerText = valNum + '°'; }
+                    else if (card.type === 'servo') { let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum; let valEl = document.getElementById(`val-${card.id}`); if(valEl) valEl.innerText = valNum + '°'; }
                 }
             });
         }
