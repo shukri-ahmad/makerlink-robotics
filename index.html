@@ -211,7 +211,6 @@
                 cardPermissions[id] = savedPerms[id] !== undefined ? savedPerms[id] : true;
             }
 
-            // FIXED: STRICT TYPE CASTING TO PREVENT TEXT INTERPOLATION BUGS
             activeCardTypes[id] = { type: type, mode: mode || "" }; 
             advancedData[id] = startVals ? Number(startVals[0]) : 0;
             
@@ -346,7 +345,6 @@
                 updateVal(id, targetVal); 
                 sendBluetoothCommand(`${id}:${targetVal}`); 
             } else {
-                // FIXED: STRICT NUMBER CASTING HERE TO PREVENT STRING CONCATENATION BUG
                 let currentVal = Number(advancedData[id]) || 0;
                 if (currentVal === targetVal) return;
                 let step = currentVal < targetVal ? 1 : -1;
@@ -501,36 +499,49 @@
                 if(cardVisibility[id] === false) return; 
 
                 if(info) {
-                    let cardData = { id: id, type: info.type, mode: info.mode || "", val: advancedData[id] !== undefined ? advancedData[id] : 0 };
-                    cardData.title = document.getElementById(`title-${id}`)?.value || "Label";
+                    // FIREBASE FIX: Strict null checking prevents silent database crashes!
+                    let cardData = {
+                        id: String(id),
+                        type: String(info.type),
+                        mode: info.mode ? String(info.mode) : "",
+                        val: advancedData[id] != null && !Number.isNaN(Number(advancedData[id])) ? Number(advancedData[id]) : 0,
+                        title: document.getElementById(`title-${id}`)?.value || "Label"
+                    };
                     
                     let isOut = (info.type === 'analog' && info.mode === 'OUT') || (info.type === 'digital' && info.mode === 'OUT') || info.type === 'motor' || info.type === 'servo';
-                    if (isOut) { cardData.publicControl = cardPermissions[id]; }
+                    if (isOut) { cardData.publicControl = cardPermissions[id] !== false; }
 
                     if (info.type === 'analog' && info.mode === 'IN') {
                         cardData.ymin = document.getElementById(`ymin-${id}`)?.value || ""; 
                         cardData.ymax = document.getElementById(`ymax-${id}`)?.value || ""; 
                         cardData.xmax = document.getElementById(`xmax-${id}`)?.value || "";
                     } else if (info.type === 'digital' && info.mode === 'OUT') {
-                        cardData.btnOff = document.getElementById(`btn-off-${id}`)?.value || "OFF"; cardData.btnOn = document.getElementById(`btn-on-${id}`)?.value || "ON";
+                        cardData.btnOff = document.getElementById(`btn-off-${id}`)?.value || "OFF";
+                        cardData.btnOn = document.getElementById(`btn-on-${id}`)?.value || "ON";
                     } else if (info.type === 'servo') {
-                        cardData.pos1Val = document.getElementById(`pos1-val-${id}`)?.value || 0; 
-                        cardData.pos2Val = document.getElementById(`pos2-val-${id}`)?.value || 180;
-                        cardData.pos1Spd = document.getElementById(`pos1-spd-${id}`)?.value || 0; 
-                        cardData.pos2Spd = document.getElementById(`pos2-spd-${id}`)?.value || 0;
+                        cardData.pos1Val = Number(document.getElementById(`pos1-val-${id}`)?.value) || 0; 
+                        cardData.pos2Val = Number(document.getElementById(`pos2-val-${id}`)?.value) || 180;
+                        cardData.pos1Spd = Number(document.getElementById(`pos1-spd-${id}`)?.value) || 0; 
+                        cardData.pos2Spd = Number(document.getElementById(`pos2-spd-${id}`)?.value) || 0;
                         cardData.btnPos1 = document.getElementById(`btn-pos1-${id}`)?.value || "Pos 1"; 
                         cardData.btnPos2 = document.getElementById(`btn-pos2-${id}`)?.value || "Pos 2";
                     } else if (info.type === 'motor') {
                         cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; 
                         cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; 
                         cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
-                        cardData.cwSpd = document.getElementById(`cw-spd-${id}`)?.value || 255;
-                        cardData.ccwSpd = document.getElementById(`ccw-spd-${id}`)?.value || 255;
+                        cardData.cwSpd = Number(document.getElementById(`cw-spd-${id}`)?.value) || 255;
+                        cardData.ccwSpd = Number(document.getElementById(`ccw-spd-${id}`)?.value) || 255;
                     }
                     payload.push(cardData);
                 }
             });
-            db.ref('rooms/' + cloudRoomId + '/state').set(payload).catch((e) => console.error(e));
+            
+            // FIREBASE FIX: Force an object if the array is completely empty to prevent Firebase deleting the root node
+            if (payload.length === 0) {
+                db.ref('rooms/' + cloudRoomId + '/state').set({ empty: true }).catch(console.error);
+            } else {
+                db.ref('rooms/' + cloudRoomId + '/state').set(payload).catch(console.error);
+            }
         }
     </script>
 </body>
