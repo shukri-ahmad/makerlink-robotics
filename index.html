@@ -24,9 +24,11 @@
         body.is-editing .maker-card:active { cursor: grabbing; }
         
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
-        #terminal-output::-webkit-scrollbar { width: 6px; }
-        #terminal-output::-webkit-scrollbar-track { background: #0f172a; }
-        #terminal-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        
+        /* Custom Scrollbars for Terminal and Text Cards */
+        #terminal-output::-webkit-scrollbar, .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        #terminal-output::-webkit-scrollbar-track, .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 4px; }
+        #terminal-output::-webkit-scrollbar-thumb, .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
         .maker-card { min-width: 320px; width: 320px; height: 360px; flex-shrink: 0; display: flex; flex-direction: column; }
         body.is-editing .resize-x-card { resize: horizontal; overflow: hidden; max-width: 95vw; }
@@ -92,6 +94,7 @@
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
         
+        // --- WEB WORKER TIMING ENGINE ---
         const workerBlob = new Blob([`
             let intervals = {};
             self.onmessage = function(e) {
@@ -129,6 +132,7 @@
                 timerWorker.postMessage({ action: 'stop', id: id });
             }
         };
+        // ---------------------------------
         
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -267,12 +271,14 @@
             }
 
             activeCardTypes[id] = { type: type, mode: mode || "" }; 
-            advancedData[id] = startVals ? Number(startVals[0]) : 0;
+            advancedData[id] = startVals && startVals[0] !== undefined ? (type === 'text' ? startVals[0] : Number(startVals[0])) : (type === 'text' ? "" : 0);
             
             const card = document.createElement('div'); 
             
             let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
-            let isResizable = (type === 'analog' && mode === 'IN') ? 'resize-x-card' : '';
+            
+            // Text Cards are now dynamically resizable in Edit Mode!
+            let isResizable = ((type === 'analog' && mode === 'IN') || type === 'text') ? 'resize-x-card' : '';
             card.className = `maker-card ${isResizable} bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg transition-colors relative z-10`; 
             card.id = `card-${id}`;
 
@@ -321,7 +327,9 @@
                          </div>`;
             } 
             else if (type === 'text') {
-                html += `<div id="val-${id}" class="w-full h-full flex items-center justify-center text-center text-3xl font-bold text-pink-400 break-words">${startVals[0]}</div>`;
+                // Fixed: Added internal custom scrollbar structure for long strings
+                let displayTxt = startVals && startVals[0] !== undefined ? startVals[0] : "";
+                html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
             }
             else if (type === 'motor') {
                 let mStart = startVals && startVals[0] !== undefined ? Number(startVals[0]) : 0;
@@ -377,9 +385,6 @@
             }
             if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0);
             if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
-            
-            // Note: The UI no longer forces its start value onto the hardware here.
-            // It waits for the MakeCode extension to send its true current state right after INIT.
 
             applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); 
         }
@@ -388,7 +393,7 @@
         function updateSensorChartConfig(id) { const yMin = document.getElementById(`ymin-${id}`).value; const yMax = document.getElementById(`ymax-${id}`).value; if(sensorCharts[id]) { if (yMin === "") delete sensorCharts[id].options.scales.y.min; else sensorCharts[id].options.scales.y.min = parseFloat(yMin); if (yMax === "") delete sensorCharts[id].options.scales.y.max; else sensorCharts[id].options.scales.y.max = parseFloat(yMax); sensorCharts[id].update(); } }
         function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const xmaxEl = document.getElementById(`xmax-${id}`); const maxPts = (xmaxEl && xmaxEl.value !== "") ? parseInt(xmaxEl.value) : 0; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
 
-        function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val); }
+        function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val) || val; } // Supports parsing text properly
         
         function setServoPos(id, posNum) { 
             let targetVal = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; 
@@ -563,7 +568,7 @@
                         id: String(id),
                         type: String(info.type),
                         mode: info.mode ? String(info.mode) : "",
-                        val: advancedData[id] != null && !Number.isNaN(Number(advancedData[id])) ? Number(advancedData[id]) : 0,
+                        val: advancedData[id] !== undefined && advancedData[id] !== null ? advancedData[id] : (info.type === 'text' ? "" : 0),
                         title: document.getElementById(`title-${id}`)?.value || "Label"
                     };
                     
