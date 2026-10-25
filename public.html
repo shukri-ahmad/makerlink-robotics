@@ -141,12 +141,10 @@
             if (action === 'cw') val = cwSpd;
             else if (action === 'ccw') val = -ccwSpd;
             
-            // SWAP Physical Motor Values for M1 and M2
             if (id === 'M1' || id === 'M2') { val = -val; }
             
             sendRemoteCommand(`${id}:${val}`);
             
-            // Optimistic UI update
             let displayStr = 'STOP (0)';
             if (val !== 0) {
                 if (id === 'M1' || id === 'M2') {
@@ -192,7 +190,7 @@
             document.querySelectorAll('[id^="public-card-"]').forEach(child => { if (!currentCardIds.includes(child.id)) child.remove(); });
 
             sharedCards.forEach(card => {
-                publicCardData[card.id] = card; // Update public memory cache for dynamic speed syncing
+                publicCardData[card.id] = card; 
                 
                 let cardEl = document.getElementById(`public-card-${card.id}`);
                 let isOutput = (card.type === 'analog' && card.mode === 'OUT') || (card.type === 'digital' && card.mode === 'OUT') || card.type === 'motor' || card.type === 'servo';
@@ -336,7 +334,7 @@
                             el.innerText = displayStr; 
                         } 
                     }
-                    else if (card.type === 'servo') { let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum; let valEl = document.getElementById(`val-${card.id}`); if(valEl) valEl.innerText = valNum + '°'; }
+                    else if (card.type === 'servo') { let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum; let vl = document.getElementById(`val-${card.id}`); if(vl) vl.innerText = valNum + '°'; }
                 }
             });
         }
