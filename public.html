@@ -24,6 +24,8 @@
 
         .maker-card { min-width: 320px; width: 320px; height: 380px; flex-shrink: 0; display: flex; flex-direction: column; transition: all 0.3s ease; }
         .resize-x-card { overflow: hidden; max-width: 95vw; }
+        
+        select { padding-right: 0 !important; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
@@ -265,7 +267,21 @@
                                      <div id="val-${card.id}" class="absolute z-10 text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,1), 0px 0px 4px rgba(0,0,0,0.8);">0</div>
                                      <canvas id="chart-${card.id}" class="absolute inset-0 w-full h-full opacity-60"></canvas>
                                  </div>
-                                 <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${card.id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${card.id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${card.id}" value="" placeholder="All" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
+                                 <div class="flex gap-2 w-full mt-auto">
+                                    <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${card.id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
+                                    <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${card.id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${card.id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
+                                    <div class="flex-1 flex flex-col">
+                                        <label class="text-[9px] text-slate-500 text-center font-bold">TIME</label>
+                                        <select id="time-${card.id}" disabled class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 appearance-none">
+                                            <option value="0">All</option>
+                                            <option value="900000">15 Min</option>
+                                            <option value="3600000">1 Hour</option>
+                                            <option value="14400000">4 Hours</option>
+                                            <option value="86400000">1 Day</option>
+                                            <option value="604800000">1 Week</option>
+                                        </select>
+                                    </div>
+                                 </div>`;
                     } 
                     else if (card.type === 'analog' && card.mode === 'OUT') {
                         html += `<div class="w-full flex-1 flex items-center justify-center">
@@ -332,6 +348,13 @@
                 }
 
                 let titleEl = document.getElementById(`title-${card.id}`); if(titleEl) titleEl.innerText = card.title || "Label";
+                
+                // Sync the TIME dropdown value correctly
+                if (card.type === 'analog' && card.mode === 'IN') {
+                    let tEl = document.getElementById(`time-${card.id}`);
+                    if (tEl && card.time !== undefined) { tEl.value = card.time; }
+                }
+
                 if (card.type === 'digital' && card.mode === 'OUT') { let bOff = document.getElementById(`btn-off-${card.id}`); if(bOff) bOff.innerText = card.btnOff || "OFF"; let bOn = document.getElementById(`btn-on-${card.id}`); if(bOn) bOn.innerText = card.btnOn || "ON"; } 
                 else if (card.type === 'motor') { let bCcw = document.getElementById(`btn-ccw-${card.id}`); if(bCcw) bCcw.innerText = card.btnCcw || "⏪ CCW"; let bStop = document.getElementById(`btn-stop-${card.id}`); if(bStop) bStop.innerText = card.btnStop || "⏹️ STOP"; let bCw = document.getElementById(`btn-cw-${card.id}`); if(bCw) bCw.innerText = card.btnCw || "CW ⏩"; } 
                 else if (card.type === 'servo') { let bP1 = document.getElementById(`btn-pos1-${card.id}`); if(bP1) bP1.innerText = card.btnPos1 || "Pos 1"; let bP2 = document.getElementById(`btn-pos2-${card.id}`); if(bP2) bP2.innerText = card.btnPos2 || "Pos 2"; }
@@ -370,7 +393,7 @@
                     let valNum = parseFloat(card.val) || 0;
                     if (card.type === 'analog' && card.mode === 'IN') {
                         let el = document.getElementById(`val-${card.id}`); 
-                        if(el) { el.innerText = valNum; el.style.color = getAnalogColor(valNum); pushChartData(card.id, valNum, card.xmax === "" ? 0 : parseInt(card.xmax)); }
+                        if(el) { el.innerText = valNum; el.style.color = getAnalogColor(valNum); pushChartData(card.id, valNum); }
                         let chart = sensorCharts[card.id]; 
                         if(chart) { 
                             if (card.ymin === "") delete chart.options.scales.y.min; else chart.options.scales.y.min = parseFloat(card.ymin); 
@@ -400,11 +423,29 @@
 
         function initChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } }); }
         
-        function pushChartData(id, val, maxPts) { 
+        function pushChartData(id, val) { 
             if(!sensorCharts[id]) return; 
             const chart = sensorCharts[id]; 
-            chart.data.labels.push(''); chart.data.datasets[0].data.push(val); 
-            if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } 
+            const timeEl = document.getElementById(`time-${id}`); 
+            const windowMs = (timeEl && timeEl.value !== "") ? parseInt(timeEl.value) : 0; 
+            
+            let now = Date.now();
+            chart.data.labels.push(now); 
+            chart.data.datasets[0].data.push(val); 
+            
+            if(windowMs > 0) { 
+                let cutoff = now - windowMs;
+                while(chart.data.labels.length > 0 && chart.data.labels[0] < cutoff) {
+                    chart.data.labels.shift(); 
+                    chart.data.datasets[0].data.shift();
+                }
+            } 
+            
+            if (chart.data.labels.length > 1500) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+            
             chart.update(); 
         }
     </script>
