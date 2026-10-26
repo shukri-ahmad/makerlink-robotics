@@ -18,13 +18,11 @@
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; cursor: pointer; background: #334155; border-radius: 4px; }
         #msg-box { transition: opacity 0.3s, transform 0.3s; }
         
-        /* Custom Scrollbars for Terminal and Text Cards */
         #terminal-output::-webkit-scrollbar, .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         #terminal-output::-webkit-scrollbar-track, .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 4px; }
         #terminal-output::-webkit-scrollbar-thumb, .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* INCREASED HEIGHT TO 380PX TO PREVENT SQUISHING */
-        .maker-card { min-width: 320px; width: 320px; height: 380px; flex-shrink: 0; display: flex; flex-direction: column; }
+        .maker-card { min-width: 320px; width: 320px; height: 380px; flex-shrink: 0; display: flex; flex-direction: column; transition: all 0.3s ease; }
         .resize-x-card { overflow: hidden; max-width: 95vw; }
     </style>
 </head>
@@ -67,7 +65,6 @@
         <div id="dashboard-grid" class="hidden flex-wrap gap-6 justify-center sm:justify-start"></div>
     </div>
 
-    <!-- Floating Powered By Badge -->
     <div class="fixed bottom-4 right-4 z-0 opacity-40 hover:opacity-100 transition-opacity flex items-center gap-2 pointer-events-none">
         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Powered by</span>
         <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-8 object-contain rounded mix-blend-screen pointer-events-auto">
@@ -261,7 +258,6 @@
 
                     let permBtnHTML = isOutput ? `<span id="public-perm-${card.id}" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded transition-colors bg-green-900/50 text-green-400 border-green-700">🎮 Public</span>` : '';
 
-                    // ADDED min-h-0 to the flex-1 container to fix nested flexbox scrolling bugs!
                     let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${card.id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${card.mode || card.type.toUpperCase()}</span></div><div class="flex items-center">${permBtnHTML}</div></div><div class="p-4 flex-1 min-h-0 flex flex-col justify-center items-center bg-slate-800 overflow-hidden">`;
 
                     if (card.type === 'analog' && card.mode === 'IN') {
@@ -315,15 +311,13 @@
                                  <div class="flex gap-3 w-full">
                                      <div class="flex-1 flex flex-col gap-1">
                                          <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
-                                             <div class="flex-1">ANG: <span class="text-blue-400">${card.pos1Val !== undefined ? card.pos1Val : 0}</span></div>
-                                             <div class="flex-1">DELAY: <span class="text-blue-400">${card.pos1Spd !== undefined ? card.pos1Spd : 0}</span></div>
+                                             <div class="w-full">ANGLE: <span class="text-blue-400">${card.pos1Val !== undefined ? card.pos1Val : 0}</span></div>
                                          </div>
                                          <button id="btn-pos1-${card.id}" onclick="sendRemoteCommand('${card.id}:POS1')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos1 || 'Pos 1'}</button>
                                      </div>
                                      <div class="flex-1 flex flex-col gap-1">
                                          <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
-                                             <div class="flex-1">ANG: <span class="text-blue-400">${card.pos2Val !== undefined ? card.pos2Val : 180}</span></div>
-                                             <div class="flex-1">DELAY: <span class="text-blue-400">${card.pos2Spd !== undefined ? card.pos2Spd : 0}</span></div>
+                                             <div class="w-full">ANGLE: <span class="text-blue-400">${card.pos2Val !== undefined ? card.pos2Val : 180}</span></div>
                                          </div>
                                          <button id="btn-pos2-${card.id}" onclick="sendRemoteCommand('${card.id}:POS2')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos2 || 'Pos 2'}</button>
                                      </div>
