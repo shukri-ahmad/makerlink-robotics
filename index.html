@@ -80,7 +80,6 @@
         <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start"></div>
     </div>
 
-    <!-- Floating Powered By Badge -->
     <div class="fixed bottom-4 right-4 z-0 opacity-40 hover:opacity-100 transition-opacity flex items-center gap-2 pointer-events-none">
         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Powered by</span>
         <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-8 object-contain rounded mix-blend-screen pointer-events-auto">
@@ -264,7 +263,7 @@
             let colorClass = type === 'analog' ? 'text-purple-400' : type === 'digital' ? 'text-emerald-400' : type === 'motor' ? 'text-orange-400' : type === 'text' ? 'text-pink-400' : 'text-blue-400';
             let iconStr = type === 'analog' ? '📊' : type === 'digital' ? '🚥' : type === 'motor' ? '⚙️' : type === 'text' ? '📝' : '🦾';
 
-            let isOutput = (type === 'analog' && mode === 'OUT') || (type === 'digital' && mode === 'OUT') || type === 'motor' || type === 'servo';
+            let isOutput = (type === 'analog' && mode === 'OUT') || (type === 'digital' && (mode === 'OUT' || mode === 'PUSH')) || type === 'motor' || type === 'servo';
             
             let headerBtnsHTML = '';
             if (isOutput) {
@@ -317,6 +316,21 @@
                          <div class="flex flex-col gap-2 w-full mt-auto">
                              <input type="text" id="btn-on-${id}" value="ON" readonly onclick="if(!isEditMode) { sendBluetoothCommand('${id}:1'); updateDigitalUI('${id}', 1); }" class="ui-btn-editable w-full py-2 px-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg active:bg-red-700 transition-all border border-red-500 text-center cursor-pointer focus:outline-none truncate">
                              <input type="text" id="btn-off-${id}" value="OFF" readonly onclick="if(!isEditMode) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }" class="ui-btn-editable w-full py-2 px-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-sm shadow-lg active:bg-slate-600 transition-all border border-slate-700 text-center cursor-pointer focus:outline-none truncate">
+                         </div>`;
+            }
+            else if (type === 'digital' && mode === 'PUSH') {
+                // NEW PUSH BUTTON MODE! 
+                html += `<div class="flex-1 flex items-center justify-center w-full">
+                             <div id="val-out-${id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
+                         </div>
+                         <div class="flex flex-col gap-2 w-full mt-auto">
+                             <input type="text" id="btn-push-${id}" value="HOLD" readonly 
+                                onmousedown="if(!isEditMode) { sendBluetoothCommand('${id}:1'); updateDigitalUI('${id}', 1); }" 
+                                onmouseup="if(!isEditMode) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }" 
+                                onmouseleave="if(!isEditMode && advancedData['${id}'] == 1) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }"
+                                ontouchstart="if(!isEditMode) { sendBluetoothCommand('${id}:1'); updateDigitalUI('${id}', 1); }"
+                                ontouchend="if(!isEditMode) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }"
+                                class="ui-btn-editable w-full py-3 px-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-purple-700 transition-all border border-purple-500 text-center cursor-pointer focus:outline-none truncate select-none">
                          </div>`;
             } 
             else if (type === 'text') {
@@ -548,7 +562,7 @@
                         title: document.getElementById(`title-${id}`)?.value || "Label"
                     };
                     
-                    let isOut = (info.type === 'analog' && info.mode === 'OUT') || (info.type === 'digital' && info.mode === 'OUT') || info.type === 'motor' || info.type === 'servo';
+                    let isOut = (info.type === 'analog' && info.mode === 'OUT') || (info.type === 'digital' && (info.mode === 'OUT' || info.mode === 'PUSH')) || info.type === 'motor' || info.type === 'servo';
                     if (isOut) { cardData.publicControl = cardPermissions[id] !== false; }
 
                     if (info.type === 'analog' && info.mode === 'IN') {
@@ -558,6 +572,8 @@
                     } else if (info.type === 'digital' && info.mode === 'OUT') {
                         cardData.btnOff = document.getElementById(`btn-off-${id}`)?.value || "OFF";
                         cardData.btnOn = document.getElementById(`btn-on-${id}`)?.value || "ON";
+                    } else if (info.type === 'digital' && info.mode === 'PUSH') {
+                        cardData.btnPush = document.getElementById(`btn-push-${id}`)?.value || "HOLD";
                     } else if (info.type === 'servo') {
                         cardData.pos1Val = Number(document.getElementById(`pos1-val-${id}`).value) || 0; 
                         cardData.pos2Val = Number(document.getElementById(`pos2-val-${id}`).value) || 180;
