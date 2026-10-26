@@ -246,36 +246,35 @@
             appendTerminal("Dashboard cleared manually."); 
         }
 
+        // FIX: Ultra-fast Integer-based LED Grid toggling!
         function toggleLED(id, i) {
-            let current = advancedData[id] || "0000000000000000000000000";
-            let arr = current.split('');
-            arr[i] = arr[i] === '1' ? '0' : '1';
-            let newVal = arr.join('');
-            advancedData[id] = newVal;
-            updateLEDUI(id, newVal);
-            sendBluetoothCommand(`${id}:${newVal}`);
+            let currentNum = parseInt(advancedData[id]) || 0;
+            currentNum = currentNum ^ (1 << i); 
+            advancedData[id] = currentNum;
+            updateLEDUI(id, currentNum);
+            sendBluetoothCommand(`${id}:${currentNum}`);
         }
 
         function clearLED(id) {
-            let newVal = "0000000000000000000000000";
-            advancedData[id] = newVal;
-            updateLEDUI(id, newVal);
-            sendBluetoothCommand(`${id}:${newVal}`);
+            advancedData[id] = 0;
+            updateLEDUI(id, 0);
+            sendBluetoothCommand(`${id}:0`);
         }
 
         function fillLED(id) {
-            let newVal = "1111111111111111111111111";
+            let newVal = 33554431; // 25 bits of 1's
             advancedData[id] = newVal;
             updateLEDUI(id, newVal);
             sendBluetoothCommand(`${id}:${newVal}`);
         }
 
-        function updateLEDUI(id, valStr) {
-            advancedData[id] = valStr;
+        function updateLEDUI(id, valNum) {
+            let num = parseInt(valNum) || 0;
+            advancedData[id] = num;
             for(let i=0; i<25; i++) {
                 let led = document.getElementById(`led-${id}-${i}`);
                 if(led) {
-                    if(valStr.charAt(i) === '1') {
+                    if((num & (1 << i)) !== 0) {
                         led.className = "w-7 h-7 rounded-sm cursor-pointer transition-colors bg-red-500 border border-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]";
                     } else {
                         led.className = "w-7 h-7 rounded-sm bg-slate-800 cursor-pointer border border-slate-600 transition-colors";
@@ -321,7 +320,7 @@
             activeCardTypes[id] = { type: type, mode: mode || "" }; 
             
             if (type === 'text') advancedData[id] = startVals && startVals[0] !== undefined ? startVals[0] : "";
-            else if (type === 'led') advancedData[id] = startVals && startVals[0] !== undefined ? startVals[0] : "0000000000000000000000000";
+            else if (type === 'led') advancedData[id] = startVals && startVals[0] !== undefined ? parseInt(startVals[0]) : 0;
             else advancedData[id] = startVals && startVals[0] !== undefined ? Number(startVals[0]) : 0;
             
             const card = document.createElement('div'); 
@@ -351,7 +350,7 @@
             let visClass = cardVisibility[id] !== false ? "bg-blue-900/50 text-blue-400 border-blue-700" : "bg-slate-700/50 text-slate-400 border-slate-600";
             headerBtnsHTML += `<button id="vis-btn-${id}" onclick="toggleVisibility('${id}')" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors ${visClass}" title="Toggle Public Visibility">${visLabel}</button>`;
 
-            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div><div class="flex items-center">${headerBtnsHTML}</div></div><div class="p-4 flex-1 min-h-0 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
+            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div><div class="p-4 flex-1 min-h-0 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
 
             if (type === 'analog' && mode === 'IN') {
                 html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
@@ -412,10 +411,12 @@
                 html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
             }
             else if (type === 'text' && mode === 'OUT') {
+                // FIX: Added the initial text to the status string so you can see it generated properly!
+                let displayTxt = startVals && startVals[0] !== undefined ? startVals[0] : "";
                 html += `<div class="w-full flex-1 flex flex-col justify-center items-center gap-4 mt-8">
                             <input type="text" id="input-${id}" placeholder="Type message..." class="w-full bg-slate-900 border border-pink-500/50 rounded-lg px-4 py-3 text-pink-400 font-bold focus:outline-none focus:border-pink-500 shadow-inner">
                             <button onclick="if(!isEditMode) { let val = document.getElementById('input-${id}').value; sendBluetoothCommand('${id}:'+val); document.getElementById('val-${id}').innerText = 'Sent: ' + val; advancedData['${id}'] = val; document.getElementById('input-${id}').value = ''; }" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg active:bg-pink-700 border border-pink-500">Send to micro:bit</button>
-                            <div id="val-${id}" class="text-xs text-slate-500 truncate w-full text-center mt-auto font-mono">Ready to send</div>
+                            <div id="val-${id}" class="text-xs text-slate-500 truncate w-full text-center mt-auto font-mono">${displayTxt ? 'Ready: ' + displayTxt : 'Ready to send'}</div>
                          </div>`;
             }
             else if (type === 'led') {
@@ -477,7 +478,7 @@
             }
             if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0);
             if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
-            if (type === 'led') updateLEDUI(id, advancedData[id]);
+            if (type === 'led') updateLEDUI(id, startVals ? startVals[0] : "0");
 
             applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); 
         }
@@ -565,13 +566,21 @@
                 let line = lines.shift().trim();
                 if (line.startsWith("LOG:")) { appendTerminal(line.substring(4)); } 
                 else if (line.startsWith("INIT:")) {
-                    let params = line.substring(5).split(","); let id = params[0];
-                    if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[2], params[3], params[4]]);
-                    else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [params[2], params[3], params[4]]);
-                    else if(id.startsWith("A")) createPlayingCard(id, 'analog', params[1], [params[2]]);
-                    else if(id.startsWith("D")) createPlayingCard(id, 'digital', params[1], [params[2]]);
-                    else if(id.startsWith("T")) createPlayingCard(id, 'text', params[1], [params[2]]);
-                    else if(id.startsWith("L")) createPlayingCard(id, 'led', null, [params[2]]);
+                    // FIX: Safer parser so user text with commas doesn't get chopped up!
+                    let payload = line.substring(5);
+                    let parts = payload.split(",");
+                    let id = parts[0];
+                    
+                    if (id.startsWith("T")) {
+                        let textVal = payload.substring(id.length + parts[1].length + 2);
+                        createPlayingCard(id, 'text', parts[1], [textVal]);
+                    } else {
+                        if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [parts[2], parts[3], parts[4]]);
+                        else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [parts[2], parts[3], parts[4]]);
+                        else if(id.startsWith("A")) createPlayingCard(id, 'analog', parts[1], [parts[2]]);
+                        else if(id.startsWith("D")) createPlayingCard(id, 'digital', parts[1], [parts[2]]);
+                        else if(id.startsWith("L")) createPlayingCard(id, 'led', null, [parts[2]]);
+                    }
                 } else if (line !== "") { parseTelemetry(line); }
             }
             rxBuffer = lines[0];
@@ -582,14 +591,8 @@
             let id = str.substring(0, splitIdx); let valStr = str.substring(splitIdx + 1);
             let cardData = activeCardTypes[id]; if (!cardData) return; advancedData[id] = valStr;
 
-            if (cardData.type === 'text') { 
-                if (cardData.mode === 'IN') {
-                    let el = document.getElementById(`val-${id}`); if(el) el.innerText = valStr; 
-                }
-            } 
-            else if (cardData.type === 'led') {
-                updateLEDUI(id, valStr);
-            }
+            if (cardData.type === 'text') { let el = document.getElementById(`val-${id}`); if(el) el.innerText = valStr; } 
+            else if (cardData.type === 'led') { updateLEDUI(id, valStr); }
             else {
                 let valNum = parseFloat(valStr) || 0;
                 if (cardData.type === 'analog' && cardData.mode === 'IN') { 
