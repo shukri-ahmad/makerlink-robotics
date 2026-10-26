@@ -245,7 +245,7 @@
                 publicCardData[card.id] = card; 
                 
                 let cardEl = document.getElementById(`public-card-${card.id}`);
-                let isOutput = (card.type === 'analog' && card.mode === 'OUT') || (card.type === 'digital' && card.mode === 'OUT') || card.type === 'motor' || card.type === 'servo';
+                let isOutput = (card.type === 'analog' && card.mode === 'OUT') || (card.type === 'digital' && (card.mode === 'OUT' || card.mode === 'PUSH')) || card.type === 'motor' || card.type === 'servo';
                 
                 if (!cardEl) {
                     cardEl = document.createElement('div'); 
@@ -292,7 +292,8 @@
                     } 
                     else if (card.type === 'digital' && card.mode === 'IN') {
                         html += `<div id="val-${card.id}" class="w-28 h-28 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 border-[4px]">LOW</div>`;
-                    } else if (card.type === 'digital' && card.mode === 'OUT') {
+                    } 
+                    else if (card.type === 'digital' && card.mode === 'OUT') {
                         html += `<div class="flex-1 flex items-center justify-center w-full">
                                      <div id="val-out-${card.id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
                                  </div>
@@ -300,7 +301,22 @@
                                      <button id="btn-on-${card.id}" onclick="sendRemoteCommand('${card.id}:1'); updateDigitalUI('${card.id}', 1);" class="w-full py-2 px-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg border border-red-500 truncate">${card.btnOn || "ON"}</button>
                                      <button id="btn-off-${card.id}" onclick="sendRemoteCommand('${card.id}:0'); updateDigitalUI('${card.id}', 0);" class="w-full py-2 px-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-sm shadow-lg border border-slate-700 truncate">${card.btnOff || "OFF"}</button>
                                  </div>`;
-                    } else if (card.type === 'text') {
+                    }
+                    else if (card.type === 'digital' && card.mode === 'PUSH') {
+                        html += `<div class="flex-1 flex items-center justify-center w-full">
+                                     <div id="val-out-${card.id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
+                                 </div>
+                                 <div class="flex flex-col gap-2 w-full mt-auto">
+                                     <button id="btn-push-${card.id}" 
+                                        onmousedown="sendRemoteCommand('${card.id}:1'); updateDigitalUI('${card.id}', 1);" 
+                                        onmouseup="sendRemoteCommand('${card.id}:0'); updateDigitalUI('${card.id}', 0);" 
+                                        onmouseleave="if(advancedData['${card.id}'] == 1) { sendRemoteCommand('${card.id}:0'); updateDigitalUI('${card.id}', 0); }"
+                                        ontouchstart="sendRemoteCommand('${card.id}:1'); updateDigitalUI('${card.id}', 1);"
+                                        ontouchend="sendRemoteCommand('${card.id}:0'); updateDigitalUI('${card.id}', 0);"
+                                        class="w-full py-3 px-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white font-bold text-lg shadow-lg border border-purple-500 truncate select-none active:bg-purple-700">${card.btnPush || "HOLD"}</button>
+                                 </div>`;
+                    }
+                    else if (card.type === 'text') {
                         let displayTxt = card.val !== undefined ? card.val : "";
                         html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${card.id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
                     } else if (card.type === 'motor') {
@@ -353,6 +369,7 @@
                 }
 
                 if (card.type === 'digital' && card.mode === 'OUT') { let bOff = document.getElementById(`btn-off-${card.id}`); if(bOff) bOff.innerText = card.btnOff || "OFF"; let bOn = document.getElementById(`btn-on-${card.id}`); if(bOn) bOn.innerText = card.btnOn || "ON"; } 
+                else if (card.type === 'digital' && card.mode === 'PUSH') { let bPush = document.getElementById(`btn-push-${card.id}`); if(bPush) bPush.innerText = card.btnPush || "HOLD"; }
                 else if (card.type === 'motor') { let bCcw = document.getElementById(`btn-ccw-${card.id}`); if(bCcw) bCcw.innerText = card.btnCcw || "⏪ CCW"; let bStop = document.getElementById(`btn-stop-${card.id}`); if(bStop) bStop.innerText = card.btnStop || "⏹️ STOP"; let bCw = document.getElementById(`btn-cw-${card.id}`); if(bCw) bCw.innerText = card.btnCw || "CW ⏩"; } 
                 else if (card.type === 'servo') { 
                     let bP1 = document.getElementById(`btn-pos1-${card.id}`); if(bP1) bP1.innerText = card.btnPos1 || "Pos 1"; 
@@ -377,6 +394,7 @@
                     let elsToToggle = [];
                     if (card.type === 'analog' && card.mode === 'OUT') elsToToggle = [`slider-${card.id}`];
                     else if (card.type === 'digital' && card.mode === 'OUT') elsToToggle = [`btn-on-${card.id}`, `btn-off-${card.id}`];
+                    else if (card.type === 'digital' && card.mode === 'PUSH') elsToToggle = [`btn-push-${card.id}`];
                     else if (card.type === 'motor') elsToToggle = [`btn-ccw-${card.id}`, `btn-cw-${card.id}`, `btn-stop-${card.id}`];
                     else if (card.type === 'servo') elsToToggle = [`btn-pos1-${card.id}`, `btn-pos2-${card.id}`]; 
                     
