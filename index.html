@@ -127,9 +127,10 @@
             
             const slider = document.getElementById('slider-' + id);
             if (slider) slider.value = currentVal;
-            updateVal(id, currentVal);
+            updateVal(id, currentVal); // Updates advancedData so the UI shows the right number
             
-            // NOTICE: sendBluetoothCommand is REMOVED from here! Hardware handles itself!
+            // FIXED: sendBluetoothCommand REMOVED from here entirely.
+            // Now the UI just animates visually, and the micro:bit hardware thread handles the physical delay seamlessly!
             
             if (currentVal === targetVal) {
                 timerWorker.postMessage({ action: 'stop', id: id });
