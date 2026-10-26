@@ -235,36 +235,35 @@
             if(sl && sl.value != v) sl.value = v;
         }
 
+        // FIX: Ultra-fast Integer-based LED Grid toggling!
         function toggleLED(id, i) {
-            let current = advancedData[id] || "0000000000000000000000000";
-            let arr = current.split('');
-            arr[i] = arr[i] === '1' ? '0' : '1';
-            let newVal = arr.join('');
-            advancedData[id] = newVal;
-            updateLEDUI(id, newVal);
-            sendRemoteCommand(`${id}:${newVal}`);
+            let currentNum = parseInt(advancedData[id]) || 0;
+            currentNum = currentNum ^ (1 << i); 
+            advancedData[id] = currentNum;
+            updateLEDUI(id, currentNum);
+            sendRemoteCommand(`${id}:${currentNum}`);
         }
 
         function clearLED(id) {
-            let newVal = "0000000000000000000000000";
-            advancedData[id] = newVal;
-            updateLEDUI(id, newVal);
-            sendRemoteCommand(`${id}:${newVal}`);
+            advancedData[id] = 0;
+            updateLEDUI(id, 0);
+            sendRemoteCommand(`${id}:0`);
         }
 
         function fillLED(id) {
-            let newVal = "1111111111111111111111111";
+            let newVal = 33554431; 
             advancedData[id] = newVal;
             updateLEDUI(id, newVal);
             sendRemoteCommand(`${id}:${newVal}`);
         }
 
-        function updateLEDUI(id, valStr) {
-            advancedData[id] = valStr;
+        function updateLEDUI(id, valNum) {
+            let num = parseInt(valNum) || 0;
+            advancedData[id] = num;
             for(let i=0; i<25; i++) {
                 let led = document.getElementById(`led-${id}-${i}`);
                 if(led) {
-                    if(valStr.charAt(i) === '1') {
+                    if((num & (1 << i)) !== 0) {
                         led.className = "w-7 h-7 rounded-sm cursor-pointer transition-colors bg-red-500 border border-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]";
                     } else {
                         led.className = "w-7 h-7 rounded-sm bg-slate-800 cursor-pointer border border-slate-600 transition-colors";
@@ -358,10 +357,11 @@
                         let displayTxt = card.val !== undefined ? card.val : "";
                         html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${card.id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
                     } else if (card.type === 'text' && card.mode === 'OUT') {
+                        let displayTxt = card.val !== undefined ? card.val : "";
                         html += `<div class="w-full flex-1 flex flex-col justify-center items-center gap-4 mt-8">
                                     <input type="text" id="input-${card.id}" placeholder="Type message..." class="w-full bg-slate-900 border border-pink-500/50 rounded-lg px-4 py-3 text-pink-400 font-bold focus:outline-none focus:border-pink-500 shadow-inner">
                                     <button onclick="let v = document.getElementById('input-${card.id}').value; sendRemoteCommand('${card.id}:'+v); document.getElementById('val-${card.id}').innerText = 'Sent: ' + v; advancedData['${card.id}'] = v; document.getElementById('input-${card.id}').value = '';" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg active:bg-pink-700 border border-pink-500">Send to micro:bit</button>
-                                    <div id="val-${card.id}" class="text-xs text-slate-500 truncate w-full text-center mt-auto font-mono">Ready to send</div>
+                                    <div id="val-${card.id}" class="text-xs text-slate-500 truncate w-full text-center mt-auto font-mono">${displayTxt ? 'Ready: ' + displayTxt : 'Ready to send'}</div>
                                  </div>`;
                     } else if (card.type === 'led') {
                         html += `<div class="grid grid-cols-5 gap-2 my-auto p-4 bg-slate-900 rounded-xl border border-slate-700 shadow-inner">
@@ -411,7 +411,7 @@
                     if (card.type === 'analog' && card.mode === 'IN') initChart(card.id);
                     if (card.type === 'analog' && card.mode === 'OUT') updateAnalogOutUI(card.id, card.val || 0);
                     if (card.type === 'digital') updateDigitalUI(card.id, card.val || 0);
-                    if (card.type === 'led') updateLEDUI(card.id, advancedData[card.id] || "0000000000000000000000000");
+                    if (card.type === 'led') updateLEDUI(card.id, advancedData[card.id] || 0);
                 }
 
                 let titleEl = document.getElementById(`title-${card.id}`); if(titleEl) titleEl.innerText = card.title || "Label";
@@ -461,7 +461,6 @@
                         }
                     });
                     
-                    // Specific toggle for LED grid pointers
                     if (card.type === 'led') {
                         for(let i=0; i<25; i++) {
                             let dot = document.getElementById(`led-${card.id}-${i}`);
