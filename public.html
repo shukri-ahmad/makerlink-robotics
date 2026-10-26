@@ -323,20 +323,17 @@
                                      <button id="btn-stop-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'stop')" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnStop || "⏹️ STOP"}</button>
                                  </div>`;
                     } else if (card.type === 'servo') {
-                        // Slider removed to prevent massive cloud spam / stutter!
                         html += `<div id="val-${card.id}" class="text-5xl font-mono text-blue-400 font-bold mb-8 mt-auto">${card.val !== undefined ? card.val : 90}°</div>
                                  <div class="flex gap-3 w-full">
                                      <div class="flex-1 flex flex-col gap-1">
-                                         <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
-                                             <div class="w-full">ANGLE: <span class="text-blue-400">${card.pos1Val !== undefined ? card.pos1Val : 0}</span></div>
-                                         </div>
-                                         <button id="btn-pos1-${card.id}" onclick="sendRemoteCommand('${card.id}:POS1')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos1 || 'Pos 1'}</button>
+                                         <label class="text-[9px] text-slate-500 text-center font-bold">ANGLE</label>
+                                         <div class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" id="pos1-val-display-${card.id}">${card.pos1Val !== undefined ? card.pos1Val : 0}</div>
+                                         <button id="btn-pos1-${card.id}" onclick="sendRemoteCommand('${card.id}:POS1')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate mt-1">${card.btnPos1 || 'Pos 1'}</button>
                                      </div>
                                      <div class="flex-1 flex flex-col gap-1">
-                                         <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
-                                             <div class="w-full">ANGLE: <span class="text-blue-400">${card.pos2Val !== undefined ? card.pos2Val : 180}</span></div>
-                                         </div>
-                                         <button id="btn-pos2-${card.id}" onclick="sendRemoteCommand('${card.id}:POS2')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate">${card.btnPos2 || 'Pos 2'}</button>
+                                         <label class="text-[9px] text-slate-500 text-center font-bold">ANGLE</label>
+                                         <div class="w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" id="pos2-val-display-${card.id}">${card.pos2Val !== undefined ? card.pos2Val : 180}</div>
+                                         <button id="btn-pos2-${card.id}" onclick="sendRemoteCommand('${card.id}:POS2')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 truncate mt-1">${card.btnPos2 || 'Pos 2'}</button>
                                      </div>
                                  </div>`;
                     }
@@ -357,7 +354,12 @@
 
                 if (card.type === 'digital' && card.mode === 'OUT') { let bOff = document.getElementById(`btn-off-${card.id}`); if(bOff) bOff.innerText = card.btnOff || "OFF"; let bOn = document.getElementById(`btn-on-${card.id}`); if(bOn) bOn.innerText = card.btnOn || "ON"; } 
                 else if (card.type === 'motor') { let bCcw = document.getElementById(`btn-ccw-${card.id}`); if(bCcw) bCcw.innerText = card.btnCcw || "⏪ CCW"; let bStop = document.getElementById(`btn-stop-${card.id}`); if(bStop) bStop.innerText = card.btnStop || "⏹️ STOP"; let bCw = document.getElementById(`btn-cw-${card.id}`); if(bCw) bCw.innerText = card.btnCw || "CW ⏩"; } 
-                else if (card.type === 'servo') { let bP1 = document.getElementById(`btn-pos1-${card.id}`); if(bP1) bP1.innerText = card.btnPos1 || "Pos 1"; let bP2 = document.getElementById(`btn-pos2-${card.id}`); if(bP2) bP2.innerText = card.btnPos2 || "Pos 2"; }
+                else if (card.type === 'servo') { 
+                    let bP1 = document.getElementById(`btn-pos1-${card.id}`); if(bP1) bP1.innerText = card.btnPos1 || "Pos 1"; 
+                    let bP2 = document.getElementById(`btn-pos2-${card.id}`); if(bP2) bP2.innerText = card.btnPos2 || "Pos 2"; 
+                    let d1 = document.getElementById(`pos1-val-display-${card.id}`); if(d1) d1.innerText = card.pos1Val !== undefined ? card.pos1Val : 0;
+                    let d2 = document.getElementById(`pos2-val-display-${card.id}`); if(d2) d2.innerText = card.pos2Val !== undefined ? card.pos2Val : 180;
+                }
 
                 if (isOutput) {
                     let canControl = card.publicControl !== false; 
@@ -376,7 +378,7 @@
                     if (card.type === 'analog' && card.mode === 'OUT') elsToToggle = [`slider-${card.id}`];
                     else if (card.type === 'digital' && card.mode === 'OUT') elsToToggle = [`btn-on-${card.id}`, `btn-off-${card.id}`];
                     else if (card.type === 'motor') elsToToggle = [`btn-ccw-${card.id}`, `btn-cw-${card.id}`, `btn-stop-${card.id}`];
-                    else if (card.type === 'servo') elsToToggle = [`btn-pos1-${card.id}`, `btn-pos2-${card.id}`]; // Removed slider reference
+                    else if (card.type === 'servo') elsToToggle = [`btn-pos1-${card.id}`, `btn-pos2-${card.id}`]; 
                     
                     elsToToggle.forEach(eid => {
                         let el = document.getElementById(eid);
