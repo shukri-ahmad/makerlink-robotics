@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MakerLink Public Control</title>
-    <!-- Favicon Added -->
     <link rel="icon" href="MakerLink Logo.jpg" type="image/jpeg">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -24,7 +23,8 @@
         #terminal-output::-webkit-scrollbar-track, .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 4px; }
         #terminal-output::-webkit-scrollbar-thumb, .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        .maker-card { min-width: 320px; width: 320px; height: 360px; flex-shrink: 0; display: flex; flex-direction: column; transition: all 0.3s ease; }
+        /* INCREASED HEIGHT TO 380PX TO PREVENT SQUISHING */
+        .maker-card { min-width: 320px; width: 320px; height: 380px; flex-shrink: 0; display: flex; flex-direction: column; }
         .resize-x-card { overflow: hidden; max-width: 95vw; }
     </style>
 </head>
@@ -261,7 +261,8 @@
 
                     let permBtnHTML = isOutput ? `<span id="public-perm-${card.id}" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded transition-colors bg-green-900/50 text-green-400 border-green-700">🎮 Public</span>` : '';
 
-                    let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${card.id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${card.mode || card.type.toUpperCase()}</span></div><div class="flex items-center">${permBtnHTML}</div></div><div class="p-4 flex-1 flex flex-col justify-center items-center bg-slate-800 overflow-hidden">`;
+                    // ADDED min-h-0 to the flex-1 container to fix nested flexbox scrolling bugs!
+                    let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${card.id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${card.mode || card.type.toUpperCase()}</span></div><div class="flex items-center">${permBtnHTML}</div></div><div class="p-4 flex-1 min-h-0 flex flex-col justify-center items-center bg-slate-800 overflow-hidden">`;
 
                     if (card.type === 'analog' && card.mode === 'IN') {
                         html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
