@@ -167,7 +167,7 @@
             let red = Math.round(100 + r * 149);
             let green = Math.round(116 - r * 1);
             let blue = Math.round(139 - r * 117);
-            return `rgb(${red}, ${green},${blue})`;
+            return `rgb(${red}, ${green}, ${blue})`;
         }
 
         function getAnalogOutColor(val) {
@@ -175,11 +175,21 @@
             let red = Math.round(100 - r * 41);
             let green = Math.round(116 + r * 14);
             let blue = Math.round(139 + r * 107);
-            return `rgb(${red},${green}, ${blue})`; }  function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => { return { id: c.id.replace('card-', ''), width: c.style.width \vert{}\vert{} '' }; }); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } } function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); } function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') \vert{}\vert{} '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } } function applySavedLayout() { const saved = JSON.parse(localStorage.getItem('makerlink_layout') \vert{}\vert{} '[]'); saved.forEach(item => { let id = typeof item === 'string' ? item : item.id; const card = document.getElementById(`card-${id}`); if (card) { if (item.width) card.style.width = item.width; gridEl.appendChild(card); } }); }
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
+        function saveLayoutOrder() { const order = Array.from(gridEl.children).map(c => { return { id: c.id.replace('card-', ''), width: c.style.width || '' }; }); localStorage.setItem('makerlink_layout', JSON.stringify(order)); if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/layout').set(order); } }
+        function saveCustomLabels() { let labels = {}; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { if(el.id) labels[el.id] = el.value; }); localStorage.setItem('makerlink_labels', JSON.stringify(labels)); }
+        function applyCustomLabels() { let labels = JSON.parse(localStorage.getItem('makerlink_labels') || '{}'); for(let id in labels) { let el = document.getElementById(id); if(el) { el.value = labels[id]; if (el.onchange) el.onchange(); } } }
+        function applySavedLayout() { const saved = JSON.parse(localStorage.getItem('makerlink_layout') || '[]'); saved.forEach(item => { let id = typeof item === 'string' ? item : item.id; const card = document.getElementById(`card-${id}`); if (card) { if (item.width) card.style.width = item.width; gridEl.appendChild(card); } }); }
 
         function showMsg(msg) { const box = document.getElementById('msg-box'); box.innerText = msg; box.classList.remove('opacity-0', 'pointer-events-none'); box.classList.add('opacity-100'); setTimeout(() => { box.classList.remove('opacity-100'); box.classList.add('opacity-0', 'pointer-events-none'); }, 4000); }
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
-        function appendTerminal(msg) { const term = document.getElementById('terminal-output'); if (term.innerHTML.includes("Waiting for micro:bit SYNC...")) term.innerHTML = ''; const time = new Date().toLocaleTimeString('en-US', { hour12: false }); const line = document.createElement('div'); let colorClass = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-400'; line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass}">${escapeHTML(msg)}</span>`; term.appendChild(line); term.scrollTop = term.scrollHeight; if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/logs').push({ time: time, msg: msg, color: colorClass }); } }  function togglePermission(id) { cardPermissions[id] = !cardPermissions[id]; let btn = document.getElementById(`perm-btn-${id}`);
+        function appendTerminal(msg) { const term = document.getElementById('terminal-output'); if (term.innerHTML.includes("Waiting for micro:bit SYNC...")) term.innerHTML = ''; const time = new Date().toLocaleTimeString('en-US', { hour12: false }); const line = document.createElement('div'); let colorClass = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-400'; line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass}">${escapeHTML(msg)}</span>`; term.appendChild(line); term.scrollTop = term.scrollHeight; if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/logs').push({ time: time, msg: msg, color: colorClass }); } }
+
+        function togglePermission(id) {
+            cardPermissions[id] = !cardPermissions[id];
+            let btn = document.getElementById(`perm-btn-${id}`);
             if (btn) {
                 if (cardPermissions[id]) {
                     btn.innerText = "🎮 Public";
@@ -195,19 +205,68 @@
 
         function toggleVisibility(id) {
             cardVisibility[id] = cardVisibility[id] === false ? true : false;
-            let btn = document.getElementById(`vis-btn-${id}`); if (btn) { if (cardVisibility[id]) { btn.innerText = "👁️"; btn.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-blue-900/50 text-blue-400 border-blue-700"; } else { btn.innerText = "🙈"; btn.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-slate-700/50 text-slate-400 border-slate-600"; } } localStorage.setItem('makerlink_vis', JSON.stringify(cardVisibility)); if (isCloudActive) syncCloud(); }  function toggleEditMode() { isEditMode = !isEditMode; sortable.option("disabled", !isEditMode); const btn = document.getElementById('btn-edit'); if (isEditMode) { document.body.classList.add('is-editing'); btn.innerHTML = "💾 Save Layout"; btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]"; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.removeAttribute('readonly'); if(el.classList.contains('ui-btn-editable') \vert{}\vert{} el.classList.contains('ui-editable-num')) { el.classList.remove('cursor-pointer'); el.classList.add('cursor-text', 'border-yellow-400', 'border-dashed'); } }); } else { document.body.classList.remove('is-editing'); btn.innerHTML = "✏️ Edit Layout"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg"; document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.setAttribute('readonly', true); if(el.classList.contains('ui-btn-editable') \vert{}\vert{} el.classList.contains('ui-editable-num')) { el.classList.add('cursor-pointer'); el.classList.remove('cursor-text', 'border-yellow-400', 'border-dashed'); } }); saveCustomLabels(); saveLayoutOrder(); } }  function clearDashboard() { gridEl.innerHTML = ''; activeCardTypes = {}; cardPermissions = {}; cardVisibility = {}; localStorage.removeItem('makerlink_layout'); localStorage.removeItem('makerlink_labels'); localStorage.removeItem('makerlink_perms'); localStorage.removeItem('makerlink_vis'); appendTerminal("Dashboard cleared manually."); }  function updateDigitalUI(id, val) { let v = Number(val); advancedData[id] = v; let valIn = document.getElementById(`val-${id}`);
+            let btn = document.getElementById(`vis-btn-${id}`);
+            if (btn) {
+                if (cardVisibility[id]) {
+                    btn.innerText = "👁️";
+                    btn.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-blue-900/50 text-blue-400 border-blue-700";
+                } else {
+                    btn.innerText = "🙈";
+                    btn.className = "ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors bg-slate-700/50 text-slate-400 border-slate-600";
+                }
+            }
+            localStorage.setItem('makerlink_vis', JSON.stringify(cardVisibility));
+            if (isCloudActive) syncCloud();
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode; sortable.option("disabled", !isEditMode); 
+            const btn = document.getElementById('btn-edit');
+            if (isEditMode) {
+                document.body.classList.add('is-editing'); btn.innerHTML = "💾 Save Layout"; btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
+                document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.removeAttribute('readonly'); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.remove('cursor-pointer'); el.classList.add('cursor-text', 'border-yellow-400', 'border-dashed'); } });
+            } else {
+                document.body.classList.remove('is-editing'); btn.innerHTML = "✏️ Edit Layout"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
+                document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.setAttribute('readonly', true); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.add('cursor-pointer'); el.classList.remove('cursor-text', 'border-yellow-400', 'border-dashed'); } });
+                saveCustomLabels(); saveLayoutOrder(); 
+            }
+        }
+
+        function clearDashboard() { 
+            gridEl.innerHTML = ''; activeCardTypes = {}; cardPermissions = {}; cardVisibility = {}; 
+            localStorage.removeItem('makerlink_layout'); localStorage.removeItem('makerlink_labels'); 
+            localStorage.removeItem('makerlink_perms'); localStorage.removeItem('makerlink_vis'); 
+            appendTerminal("Dashboard cleared manually."); 
+        }
+
+        function updateDigitalUI(id, val) {
+            let v = Number(val); advancedData[id] = v; let valIn = document.getElementById(`val-${id}`);
             if(valIn) { 
                 valIn.innerText = v === 1 ? 'HIGH' : 'LOW'; 
                 if(v === 1) { valIn.style.backgroundColor = '#dc2626'; valIn.style.color = '#ffffff'; valIn.style.borderColor = '#f87171'; valIn.style.boxShadow = '0 0 25px rgba(220, 38, 38, 0.8)'; } 
                 else { valIn.style.backgroundColor = '#0f172a'; valIn.style.color = '#64748b'; valIn.style.borderColor = '#1e293b'; valIn.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } 
             }
             
-            let valOut = document.getElementById(`val-out-${id}`); if(valOut) { if(v === 1) { valOut.style.backgroundColor = '#2563eb'; valOut.style.borderColor = '#60a5fa'; valOut.style.boxShadow = '0 0 25px rgba(37, 99, 235, 0.8)'; } else { valOut.style.backgroundColor = '#0f172a'; valOut.style.borderColor = '#1e293b'; valOut.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } } }  function updateAnalogOutUI(id, val) { let v = Number(val); advancedData[id] = v; let elOut = document.getElementById(`val-out-${id}`);
+            let valOut = document.getElementById(`val-out-${id}`);
+            if(valOut) { 
+                if(v === 1) { valOut.style.backgroundColor = '#2563eb'; valOut.style.borderColor = '#60a5fa'; valOut.style.boxShadow = '0 0 25px rgba(37, 99, 235, 0.8)'; } 
+                else { valOut.style.backgroundColor = '#0f172a'; valOut.style.borderColor = '#1e293b'; valOut.style.boxShadow = 'inset 0 4px 6px rgba(0, 0, 0, 0.6)'; } 
+            }
+        }
+
+        function updateAnalogOutUI(id, val) {
+            let v = Number(val); advancedData[id] = v;
+            let elOut = document.getElementById(`val-out-${id}`);
             if(elOut) {
                 elOut.innerText = v;
                 elOut.style.color = getAnalogColor(v);
             }
-            let sl = document.getElementById(`slider-${id}`); if(sl && sl.value != v) sl.value = v; }  function createPlayingCard(id, type, mode, startVals) { if(document.getElementById(`card-${id}`)) return; 
+            let sl = document.getElementById(`slider-${id}`);
+            if(sl && sl.value != v) sl.value = v;
+        }
+
+        function createPlayingCard(id, type, mode, startVals) {
+            if(document.getElementById(`card-${id}`)) return; 
             
             if(cardPermissions[id] === undefined) {
                 let savedPerms = JSON.parse(localStorage.getItem('makerlink_perms') || '{}');
@@ -222,7 +281,7 @@
             let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
             
             let isResizable = ((type === 'analog' && mode === 'IN') || type === 'text') ? 'resize-x-card' : '';
-            card.className = `maker-card ${isResizable} bg-slate-800 rounded-xl border-2${borderTheme} shadow-lg transition-colors relative z-10`; 
+            card.className = `maker-card ${isResizable} bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg transition-colors relative z-10`; 
             card.id = `card-${id}`;
 
             let colorClass = type === 'analog' ? 'text-purple-400' : type === 'digital' ? 'text-emerald-400' : type === 'motor' ? 'text-orange-400' : type === 'text' ? 'text-pink-400' : 'text-blue-400';
@@ -241,7 +300,7 @@
             let visClass = cardVisibility[id] !== false ? "bg-blue-900/50 text-blue-400 border-blue-700" : "bg-slate-700/50 text-slate-400 border-slate-600";
             headerBtnsHTML += `<button id="vis-btn-${id}" onclick="toggleVisibility('${id}')" class="ml-2 text-[10px] border px-1.5 py-0.5 rounded cursor-pointer hover:opacity-80 transition-colors ${visClass}" title="Toggle Public Visibility">${visLabel}</button>`;
 
-            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr}${mode ? mode : type.toUpperCase()}</span></div><div class="flex items-center">${headerBtnsHTML}</div></div><div class="p-4 flex-1 min-h-0 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
+            let html = `<div class="p-3 bg-slate-900 border-b-2 ${borderTheme} flex justify-between items-center rounded-t-xl"><div class="flex items-center gap-2"><span class="font-bold text-sm ${colorClass}">${id}</span><span class="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">${iconStr} ${mode ? mode : type.toUpperCase()}</span></div><div class="flex items-center">${headerBtnsHTML}</div></div><div class="p-4 flex-1 min-h-0 flex flex-col items-center justify-center bg-slate-800 overflow-hidden">`;
 
             if (type === 'analog' && mode === 'IN') {
                 html += `<div class="w-full flex-1 relative min-h-[120px] bg-slate-900 rounded-lg border border-slate-700 mb-4 flex items-center justify-center overflow-hidden">
@@ -298,7 +357,7 @@
                          </div>`;
             } 
             else if (type === 'servo') {
-                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0] || 90}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0] \vert{}\vert{} 90}" oninput="timerWorker.postMessage({action:'stop', id:'${id}'}); updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
+                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0] || 90}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0] || 90}" oninput="timerWorker.postMessage({action:'stop', id:'${id}'}); updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
                          <div class="flex gap-3 w-full">
                              <div class="flex-1 flex flex-col gap-1">
                                  <div class="flex gap-1 w-full">
@@ -323,9 +382,19 @@
             
             if (type === 'analog' && mode === 'IN') {
                 initSensorChart(id);
-                if(startVals) document.getElementById(`val-${id}`).style.color = getAnalogColor(Number(startVals[0])); } if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0); if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);  applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); }  function initSensorChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } }); }
+                if(startVals) document.getElementById(`val-${id}`).style.color = getAnalogColor(Number(startVals[0]));
+            }
+            if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0);
+            if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
+
+            applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); 
+        }
+
+        function initSensorChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } }); }
         function updateSensorChartConfig(id) { const yMin = document.getElementById(`ymin-${id}`).value; const yMax = document.getElementById(`ymax-${id}`).value; if(sensorCharts[id]) { if (yMin === "") delete sensorCharts[id].options.scales.y.min; else sensorCharts[id].options.scales.y.min = parseFloat(yMin); if (yMax === "") delete sensorCharts[id].options.scales.y.max; else sensorCharts[id].options.scales.y.max = parseFloat(yMax); sensorCharts[id].update(); } }
-        function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const xmaxEl = document.getElementById(`xmax-${id}`); const maxPts = (xmaxEl && xmaxEl.value !== "") ? parseInt(xmaxEl.value) : 0; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }  function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val) || val; }
+        function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const xmaxEl = document.getElementById(`xmax-${id}`); const maxPts = (xmaxEl && xmaxEl.value !== "") ? parseInt(xmaxEl.value) : 0; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
+
+        function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val) || val; }
         
         function setServoPos(id, posNum) { 
             let targetVal = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; 
@@ -335,7 +404,16 @@
             timerWorker.postMessage({action:'stop', id: id});
             
             if (spd <= 0) {
-                const slider = document.getElementById(`slider-${id}`); if (slider) slider.value = targetVal; updateVal(id, targetVal); sendBluetoothCommand(`${id}:${targetVal}`); } else { let currentVal = Number(advancedData[id]) \vert{}\vert{} 0; if (currentVal === targetVal) return;  // NEW: Send the smart combined command to the hardware ONE time! sendBluetoothCommand(`${id}:${targetVal}:${spd}`);
+                const slider = document.getElementById(`slider-${id}`); 
+                if (slider) slider.value = targetVal; 
+                updateVal(id, targetVal); 
+                sendBluetoothCommand(`${id}:${targetVal}`); 
+            } else {
+                let currentVal = Number(advancedData[id]) || 0;
+                if (currentVal === targetVal) return;
+                
+                // NEW: Send the smart combined command to the hardware ONE time!
+                sendBluetoothCommand(`${id}:${targetVal}:${spd}`);
                 
                 servoTargets[id] = targetVal;
                 // Run the UI worker just to animate the slider smoothly on screen
@@ -346,7 +424,10 @@
         function setMotor(id, action) { 
             let val = 0; 
             if (action === 'ccw') { 
-                let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) \vert{}\vert{} 0; val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); } else if (action === 'cw') { let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; 
+                let spd = parseInt(document.getElementById(`ccw-spd-${id}`).value) || 0; 
+                val = -(spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
+            } else if (action === 'cw') { 
+                let spd = parseInt(document.getElementById(`cw-spd-${id}`).value) || 0; 
                 val = (spd > 255 ? 255 : (spd < 0 ? 0 : spd)); 
             } 
             
@@ -361,7 +442,12 @@
                 }
             }
 
-            document.getElementById(`val-${id}`).innerText = displayStr; advancedData[id] = val; sendBluetoothCommand(`${id}:${val}`); }  async function sendBluetoothCommand(cmd) { if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; } commandQueue.push(cmd); processCommandQueue(); }
+            document.getElementById(`val-${id}`).innerText = displayStr; 
+            advancedData[id] = val; 
+            sendBluetoothCommand(`${id}:${val}`); 
+        }
+
+        async function sendBluetoothCommand(cmd) { if (!txCharacteristic) { console.log(`[Simulated TX] ${cmd}`); return; } commandQueue.push(cmd); processCommandQueue(); }
         async function processCommandQueue() { if (isTransmitting || commandQueue.length === 0) return; isTransmitting = true; const cmd = commandQueue.shift(); try { let data = new TextEncoder().encode(cmd + '\n'); if (txCharacteristic.properties.writeWithoutResponse) { await txCharacteristic.writeValueWithoutResponse(data); } else { await txCharacteristic.writeValue(data); } } catch (err) {} finally { isTransmitting = false; if (commandQueue.length > 0) { setTimeout(processCommandQueue, 10); } } }
 
         async function connectBluetooth() {
@@ -418,10 +504,114 @@
             let id = str.substring(0, splitIdx); let valStr = str.substring(splitIdx + 1);
             let cardData = activeCardTypes[id]; if (!cardData) return; advancedData[id] = valStr;
 
-            if (cardData.type === 'text') { let el = document.getElementById(`val-${id}`); if(el) el.innerText = valStr; } else { let valNum = parseFloat(valStr) \vert{}\vert{} 0; if (cardData.type === 'analog' && cardData.mode === 'IN') { let el = document.getElementById(`val-${id}`); 
+            if (cardData.type === 'text') { let el = document.getElementById(`val-${id}`); if(el) el.innerText = valStr; } 
+            else {
+                let valNum = parseFloat(valStr) || 0;
+                if (cardData.type === 'analog' && cardData.mode === 'IN') { 
+                    let el = document.getElementById(`val-${id}`); 
                     if(el) { el.innerText = valNum; el.style.color = getAnalogColor(valNum); pushSensorData(id, valNum); } 
                 } 
                 else if (cardData.type === 'analog' && cardData.mode === 'OUT') { updateAnalogOutUI(id, valNum); }
                 else if (cardData.type === 'digital') { updateDigitalUI(id, valNum); }
                 else if (cardData.type === 'motor') { 
-                    let el = document.getElementById(`val-${id}`); if (el) { let displayStr = 'STOP (0)'; if (valNum !== 0) { if (id === 'M1' \vert{}\vert{} id === 'M2') { displayStr = valNum < 0 ? `CW (${Math.
+                    let el = document.getElementById(`val-${id}`); 
+                    if (el) { 
+                        let displayStr = 'STOP (0)';
+                        if (valNum !== 0) {
+                            if (id === 'M1' || id === 'M2') {
+                                displayStr = valNum < 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                            } else {
+                                displayStr = valNum > 0 ? `CW (${Math.abs(valNum)})` : `CCW (${Math.abs(valNum)})`;
+                            }
+                        }
+                        el.innerText = displayStr; 
+                    } 
+                }
+                else if (cardData.type === 'servo') { let el = document.getElementById(`slider-${id}`); if(el) el.value = valNum; let valEl = document.getElementById(`val-${id}`); if(valEl) valEl.innerText = valNum + '°'; }
+            }
+        }
+
+        function toggleCloud() {
+            isCloudActive = !isCloudActive; const btn = document.getElementById('btn-cloud');
+            if (isCloudActive) {
+                cloudRoomId = Math.floor(1000 + Math.random() * 9000);
+                btn.innerHTML = `🔴 Live: Room ${cloudRoomId}`; btn.className = "bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]";
+                db.ref('rooms/' + cloudRoomId).remove(); saveLayoutOrder(); 
+                
+                db.ref('rooms/' + cloudRoomId + '/command').on('child_added', (snap) => { 
+                    const cmdData = snap.val(); 
+                    if(cmdData && cmdData.cmd) { 
+                        if (cmdData.cmd.includes(':POS1')) { setServoPos(cmdData.cmd.split(':')[0], 1); }
+                        else if (cmdData.cmd.includes(':POS2')) { setServoPos(cmdData.cmd.split(':')[0], 2); }
+                        else {
+                            let parsedId = cmdData.cmd.split(':')[0];
+                            timerWorker.postMessage({action:'stop', id: parsedId});
+                            sendBluetoothCommand(cmdData.cmd); 
+                            parseTelemetry(cmdData.cmd); 
+                        }
+                    } 
+                });
+                cloudInterval = setInterval(syncCloud, 400); appendTerminal(`Cloud stream active. Room ID: ${cloudRoomId}`);
+            } else {
+                btn.innerHTML = `☁️ Go Public`; btn.className = "bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
+                clearInterval(cloudInterval); if(cloudRoomId) { db.ref('rooms/' + cloudRoomId).remove(); } appendTerminal("Cloud stream closed.");
+            }
+        }
+
+        function syncCloud() {
+            const payload = [];
+            
+            db.ref('rooms/' + cloudRoomId + '/config').set({ terminalVisible: cardVisibility['terminal'] !== false });
+            db.ref('rooms/' + cloudRoomId + '/heartbeat').set(Date.now());
+
+            Array.from(gridEl.children).forEach(cardDom => {
+                let id = cardDom.id.replace('card-', ''); let info = activeCardTypes[id];
+                
+                if(cardVisibility[id] === false) return; 
+
+                if(info) {
+                    let cardData = {
+                        id: String(id),
+                        type: String(info.type),
+                        mode: info.mode ? String(info.mode) : "",
+                        val: advancedData[id] != null && !Number.isNaN(Number(advancedData[id])) ? Number(advancedData[id]) : 0,
+                        title: document.getElementById(`title-${id}`)?.value || "Label"
+                    };
+                    
+                    let isOut = (info.type === 'analog' && info.mode === 'OUT') || (info.type === 'digital' && info.mode === 'OUT') || info.type === 'motor' || info.type === 'servo';
+                    if (isOut) { cardData.publicControl = cardPermissions[id] !== false; }
+
+                    if (info.type === 'analog' && info.mode === 'IN') {
+                        cardData.ymin = document.getElementById(`ymin-${id}`)?.value || ""; 
+                        cardData.ymax = document.getElementById(`ymax-${id}`)?.value || ""; 
+                        cardData.xmax = document.getElementById(`xmax-${id}`)?.value || "";
+                    } else if (info.type === 'digital' && info.mode === 'OUT') {
+                        cardData.btnOff = document.getElementById(`btn-off-${id}`)?.value || "OFF";
+                        cardData.btnOn = document.getElementById(`btn-on-${id}`)?.value || "ON";
+                    } else if (info.type === 'servo') {
+                        cardData.pos1Val = Number(document.getElementById(`pos1-val-${id}`)?.value) || 0; 
+                        cardData.pos2Val = Number(document.getElementById(`pos2-val-${id}`)?.value) || 180;
+                        cardData.pos1Spd = Number(document.getElementById(`pos1-spd-${id}`)?.value) || 0; 
+                        cardData.pos2Spd = Number(document.getElementById(`pos2-spd-${id}`)?.value) || 0;
+                        cardData.btnPos1 = document.getElementById(`btn-pos1-${id}`)?.value || "Pos 1"; 
+                        cardData.btnPos2 = document.getElementById(`btn-pos2-${id}`)?.value || "Pos 2";
+                    } else if (info.type === 'motor') {
+                        cardData.btnCcw = document.getElementById(`btn-ccw-${id}`)?.value || "⏪ CCW"; 
+                        cardData.btnStop = document.getElementById(`btn-stop-${id}`)?.value || "⏹️ STOP"; 
+                        cardData.btnCw = document.getElementById(`btn-cw-${id}`)?.value || "CW ⏩";
+                        cardData.cwSpd = Number(document.getElementById(`cw-spd-${id}`)?.value) || 255;
+                        cardData.ccwSpd = Number(document.getElementById(`ccw-spd-${id}`)?.value) || 255;
+                    }
+                    payload.push(cardData);
+                }
+            });
+            
+            if (payload.length === 0) {
+                db.ref('rooms/' + cloudRoomId + '/state').set({ empty: true }).catch(console.error);
+            } else {
+                db.ref('rooms/' + cloudRoomId + '/state').set(payload).catch(console.error);
+            }
+        }
+    </script>
+</body>
+</html>
