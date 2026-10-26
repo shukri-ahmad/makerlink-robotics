@@ -80,8 +80,8 @@
         let publicCardData = {}; 
         let watchdogTimer = null;
         
-        // Exact pixel snapping array for the grids
-        const cardSizes = ['320px', '664px', '1008px', '100%'];
+        // Exact pixel snapping array for the grids (FIXED to 1352px for 4X)
+        const cardSizes = ['320px', '664px', '1008px', '1352px'];
 
         function pingCloud() {
             const p = document.getElementById('ping-indicator');
@@ -296,8 +296,7 @@
                     } 
                     else if (card.type === 'digital' && card.mode === 'IN') {
                         html += `<div id="val-${card.id}" class="w-28 h-28 rounded-full flex items-center justify-center text-3xl font-bold transition-all duration-200 border-[4px]">LOW</div>`;
-                    } 
-                    else if (card.type === 'digital' && card.mode === 'OUT') {
+                    } else if (card.type === 'digital' && card.mode === 'OUT') {
                         html += `<div class="flex-1 flex items-center justify-center w-full">
                                      <div id="val-out-${card.id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
                                  </div>
@@ -305,8 +304,7 @@
                                      <button id="btn-on-${card.id}" onclick="sendRemoteCommand('${card.id}:1'); updateDigitalUI('${card.id}', 1);" class="w-full py-2 px-2 bg-red-600 hover:bg-red-500 rounded-lg text-white font-bold text-sm shadow-lg border border-red-500 truncate">${card.btnOn || "ON"}</button>
                                      <button id="btn-off-${card.id}" onclick="sendRemoteCommand('${card.id}:0'); updateDigitalUI('${card.id}', 0);" class="w-full py-2 px-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-400 font-bold text-sm shadow-lg border border-slate-700 truncate">${card.btnOff || "OFF"}</button>
                                  </div>`;
-                    }
-                    else if (card.type === 'digital' && card.mode === 'PUSH') {
+                    } else if (card.type === 'digital' && card.mode === 'PUSH') {
                         html += `<div class="flex-1 flex items-center justify-center w-full">
                                      <div id="val-out-${card.id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
                                  </div>
@@ -319,12 +317,10 @@
                                         ontouchend="sendRemoteCommand('${card.id}:0'); updateDigitalUI('${card.id}', 0);"
                                         class="w-full py-3 px-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white font-bold text-lg shadow-lg border border-purple-500 truncate select-none active:bg-purple-700">${card.btnPush || "HOLD"}</button>
                                  </div>`;
-                    } 
-                    else if (card.type === 'text') {
+                    } else if (card.type === 'text') {
                         let displayTxt = card.val !== undefined ? card.val : "";
                         html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${card.id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
-                    }
-                    else if (card.type === 'motor') {
+                    } else if (card.type === 'motor') {
                         let mStart = card.val !== undefined ? Number(card.val) : 0;
                         let mDisplayStr = 'STOP (0)';
                         if (mStart !== 0) {
@@ -343,8 +339,7 @@
                                      </div>
                                      <button id="btn-stop-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'stop')" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnStop || "⏹️ STOP"}</button>
                                  </div>`;
-                    } 
-                    else if (card.type === 'servo') {
+                    } else if (card.type === 'servo') {
                         html += `<div id="val-${card.id}" class="text-5xl font-mono text-blue-400 font-bold mb-8 mt-auto">${card.val !== undefined ? card.val : 90}°</div>
                                  <div class="flex gap-3 w-full">
                                      <div class="flex-1 flex flex-col gap-1">
