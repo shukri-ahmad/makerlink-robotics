@@ -36,6 +36,9 @@
         body.is-editing .resize-x-card { resize: horizontal; overflow: hidden; max-width: 95vw; }
         body:not(.is-editing) .resize-x-card { resize: none; overflow: hidden; }
         .sortable-ghost { opacity: 0.4; }
+        
+        /* Fix for select dropdown arrow spacing */
+        select { padding-right: 0 !important; }
     </style>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col p-4 md:p-6 overflow-x-hidden relative">
@@ -78,6 +81,7 @@
         <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start"></div>
     </div>
 
+    <!-- Floating Powered By Badge -->
     <div class="fixed bottom-4 right-4 z-0 opacity-40 hover:opacity-100 transition-opacity flex items-center gap-2 pointer-events-none">
         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Powered by</span>
         <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-8 object-contain rounded mix-blend-screen pointer-events-auto">
@@ -94,6 +98,45 @@
         let cardVisibility = JSON.parse(localStorage.getItem('makerlink_vis') || '{}');
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
+        
+        // --- WEB WORKER TIMING ENGINE (UI ANIMATION ONLY) ---
+        const workerBlob = new Blob([`
+            let intervals = {};
+            self.onmessage = function(e) {
+                let d = e.data;
+                if (d.action === 'start') {
+                    if(intervals[d.id]) clearInterval(intervals[d.id]);
+                    intervals[d.id] = setInterval(() => { self.postMessage({id: d.id}); }, d.spd);
+                } else if (d.action === 'stop') {
+                    if(intervals[d.id]) { clearInterval(intervals[d.id]); delete intervals[d.id]; }
+                }
+            };
+        `], { type: 'application/javascript' });
+        const timerWorker = new Worker(URL.createObjectURL(workerBlob));
+        let servoTargets = {};
+        
+        timerWorker.onmessage = function(e) {
+            let id = e.data.id;
+            let targetVal = servoTargets[id];
+            let currentVal = Number(advancedData[id]) || 0;
+            
+            if (currentVal === targetVal) {
+                timerWorker.postMessage({ action: 'stop', id: id });
+                return;
+            }
+            
+            let step = currentVal < targetVal ? 1 : -1;
+            currentVal += step;
+            
+            const slider = document.getElementById('slider-' + id);
+            if (slider) slider.value = currentVal;
+            updateVal(id, currentVal);
+            
+            if (currentVal === targetVal) {
+                timerWorker.postMessage({ action: 'stop', id: id });
+            }
+        };
+        // ----------------------------------------------------
         
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -182,10 +225,28 @@
             const btn = document.getElementById('btn-edit');
             if (isEditMode) {
                 document.body.classList.add('is-editing'); btn.innerHTML = "💾 Save Layout"; btn.className = "bg-yellow-500 hover:bg-yellow-400 text-yellow-950 font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-[0_0_15px_rgba(234,179,8,0.4)]";
-                document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.removeAttribute('readonly'); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.remove('cursor-pointer'); el.classList.add('cursor-text', 'border-yellow-400', 'border-dashed'); } });
+                
+                // Allow selects and inputs to be edited
+                document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { 
+                    if(el.tagName === 'SELECT') { el.disabled = false; } 
+                    else { el.removeAttribute('readonly'); }
+                    
+                    if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { 
+                        el.classList.remove('cursor-pointer'); el.classList.add('cursor-text', 'border-yellow-400', 'border-dashed'); 
+                    } 
+                });
             } else {
                 document.body.classList.remove('is-editing'); btn.innerHTML = "✏️ Edit Layout"; btn.className = "bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg";
-                document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { el.setAttribute('readonly', true); if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { el.classList.add('cursor-pointer'); el.classList.remove('cursor-text', 'border-yellow-400', 'border-dashed'); } });
+                
+                // Lock selects and inputs
+                document.querySelectorAll('.ui-editable, .ui-btn-editable, .ui-editable-num').forEach(el => { 
+                    if(el.tagName === 'SELECT') { el.disabled = true; } 
+                    else { el.setAttribute('readonly', true); }
+                    
+                    if(el.classList.contains('ui-btn-editable') || el.classList.contains('ui-editable-num')) { 
+                        el.classList.add('cursor-pointer'); el.classList.remove('cursor-text', 'border-yellow-400', 'border-dashed'); 
+                    } 
+                });
                 saveCustomLabels(); saveLayoutOrder(); 
             }
         }
@@ -265,7 +326,21 @@
                              <div id="val-${id}" class="absolute z-10 text-6xl font-mono font-black tracking-tighter transition-colors duration-200" style="color: rgb(100, 116, 139); text-shadow: 0px 4px 15px rgba(0,0,0,1), 0px 0px 4px rgba(0,0,0,0.8);">0</div>
                              <canvas id="chart-${id}" class="absolute inset-0 w-full h-full opacity-60"></canvas>
                          </div>
-                         <div class="flex gap-2 w-full mt-auto"><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div><div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">PTS</label><input type="number" id="xmax-${id}" value="" placeholder="All" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div></div>`;
+                         <div class="flex gap-2 w-full mt-auto">
+                            <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MIN</label><input type="number" id="ymin-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
+                            <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">MAX</label><input type="number" id="ymax-${id}" value="" placeholder="Auto" readonly onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300"></div>
+                            <div class="flex-1 flex flex-col">
+                                <label class="text-[9px] text-slate-500 text-center font-bold">TIME</label>
+                                <select id="time-${id}" disabled onchange="updateSensorChartConfig('${id}')" class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-slate-300 appearance-none">
+                                    <option value="0">All</option>
+                                    <option value="900000">15 Min</option>
+                                    <option value="3600000">1 Hour</option>
+                                    <option value="14400000">4 Hours</option>
+                                    <option value="86400000">1 Day</option>
+                                    <option value="604800000">1 Week</option>
+                                </select>
+                            </div>
+                         </div>`;
             } 
             else if (type === 'analog' && mode === 'OUT') {
                 html += `<div class="w-full flex-1 flex items-center justify-center">
@@ -318,13 +393,15 @@
                 html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0] || 90}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0] || 90}" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
                          <div class="flex gap-3 w-full">
                              <div class="flex-1 flex flex-col gap-1">
-                                 <label class="text-[9px] text-slate-500 text-center font-bold">ANGLE</label>
-                                 <input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner mb-1">
+                                 <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
+                                     <div class="w-full">ANGLE: <span class="text-blue-400">${startVals[1] || 0}</span></div>
+                                 </div>
                                  <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                              <div class="flex-1 flex flex-col gap-1">
-                                 <label class="text-[9px] text-slate-500 text-center font-bold">ANGLE</label>
-                                 <input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner mb-1">
+                                 <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
+                                     <div class="w-full">ANGLE: <span class="text-blue-400">${startVals[2] || 180}</span></div>
+                                 </div>
                                  <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                          </div>`;
@@ -345,14 +422,50 @@
         }
 
         function initSensorChart(id) { const ctx = document.getElementById(`chart-${id}`).getContext('2d'); sensorCharts[id] = new Chart(ctx, { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#c084fc', tension: 0.2, pointRadius: 0, borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } }); }
-        function updateSensorChartConfig(id) { const yMin = document.getElementById(`ymin-${id}`).value; const yMax = document.getElementById(`ymax-${id}`).value; if(sensorCharts[id]) { if (yMin === "") delete sensorCharts[id].options.scales.y.min; else sensorCharts[id].options.scales.y.min = parseFloat(yMin); if (yMax === "") delete sensorCharts[id].options.scales.y.max; else sensorCharts[id].options.scales.y.max = parseFloat(yMax); sensorCharts[id].update(); } }
-        function pushSensorData(id, val) { if(!sensorCharts[id]) return; const chart = sensorCharts[id]; const xmaxEl = document.getElementById(`xmax-${id}`); const maxPts = (xmaxEl && xmaxEl.value !== "") ? parseInt(xmaxEl.value) : 0; chart.data.labels.push(''); chart.data.datasets[0].data.push(val); if(maxPts > 0 && chart.data.labels.length > maxPts) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); } chart.update(); }
+        
+        function updateSensorChartConfig(id) { 
+            const yMin = document.getElementById(`ymin-${id}`).value; 
+            const yMax = document.getElementById(`ymax-${id}`).value; 
+            if(sensorCharts[id]) { 
+                if (yMin === "") delete sensorCharts[id].options.scales.y.min; else sensorCharts[id].options.scales.y.min = parseFloat(yMin); 
+                if (yMax === "") delete sensorCharts[id].options.scales.y.max; else sensorCharts[id].options.scales.y.max = parseFloat(yMax); 
+                sensorCharts[id].update(); 
+            } 
+        }
+        
+        function pushSensorData(id, val) { 
+            if(!sensorCharts[id]) return; 
+            const chart = sensorCharts[id]; 
+            const timeEl = document.getElementById(`time-${id}`); 
+            const windowMs = (timeEl && timeEl.value !== "") ? parseInt(timeEl.value) : 0; 
+            
+            let now = Date.now();
+            chart.data.labels.push(now); 
+            chart.data.datasets[0].data.push(val); 
+            
+            if(windowMs > 0) { 
+                let cutoff = now - windowMs;
+                while(chart.data.labels.length > 0 && chart.data.labels[0] < cutoff) {
+                    chart.data.labels.shift(); 
+                    chart.data.datasets[0].data.shift();
+                }
+            } 
+            
+            // Safety cap: Prevent browser crash if streaming too fast for too long
+            if (chart.data.labels.length > 1500) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+            
+            chart.update(); 
+        }
 
         function updateVal(id, val) { document.getElementById(`val-${id}`).innerText = val + (id.startsWith('S') ? '°' : ''); advancedData[id] = Number(val) || val; }
         
         function setServoPos(id, posNum) { 
-            let targetVal = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; 
-            if (targetVal > 180) targetVal = 180; if (targetVal < 0) targetVal = 0; 
+            let targetVal = 0;
+            if(posNum === 1) targetVal = parseInt(document.getElementById(`btn-pos1-${id}`).parentElement.querySelector('span').innerText) || 0;
+            if(posNum === 2) targetVal = parseInt(document.getElementById(`btn-pos2-${id}`).parentElement.querySelector('span').innerText) || 180;
             
             const slider = document.getElementById(`slider-${id}`); 
             if (slider) slider.value = targetVal; 
@@ -521,13 +634,13 @@
                     if (info.type === 'analog' && info.mode === 'IN') {
                         cardData.ymin = document.getElementById(`ymin-${id}`)?.value || ""; 
                         cardData.ymax = document.getElementById(`ymax-${id}`)?.value || ""; 
-                        cardData.xmax = document.getElementById(`xmax-${id}`)?.value || "";
+                        cardData.time = document.getElementById(`time-${id}`)?.value || "0";
                     } else if (info.type === 'digital' && info.mode === 'OUT') {
                         cardData.btnOff = document.getElementById(`btn-off-${id}`)?.value || "OFF";
                         cardData.btnOn = document.getElementById(`btn-on-${id}`)?.value || "ON";
                     } else if (info.type === 'servo') {
-                        cardData.pos1Val = Number(document.getElementById(`pos1-val-${id}`)?.value) || 0; 
-                        cardData.pos2Val = Number(document.getElementById(`pos2-val-${id}`)?.value) || 180;
+                        cardData.pos1Val = Number(document.getElementById(`btn-pos1-${id}`).parentElement.querySelector('span').innerText) || 0; 
+                        cardData.pos2Val = Number(document.getElementById(`btn-pos2-${id}`).parentElement.querySelector('span').innerText) || 180;
                         cardData.btnPos1 = document.getElementById(`btn-pos1-${id}`)?.value || "Pos 1"; 
                         cardData.btnPos2 = document.getElementById(`btn-pos2-${id}`)?.value || "Pos 2";
                     } else if (info.type === 'motor') {
