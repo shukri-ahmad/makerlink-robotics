@@ -25,7 +25,6 @@
         body.is-editing .maker-card { cursor: grab; }
         body.is-editing .maker-card:active { cursor: grabbing; }
         
-        /* New size buttons visibility logic */
         .size-btns { display: none; }
         body.is-editing .size-btns { display: flex; }
         
@@ -35,7 +34,6 @@
         #terminal-output::-webkit-scrollbar-track, .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); border-radius: 4px; }
         #terminal-output::-webkit-scrollbar-thumb, .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-        /* max-width: 100% ensures wide cards perfectly shrink on mobile phones! */
         .maker-card { width: 320px; max-width: 100%; height: 380px; flex-shrink: 0; display: flex; flex-direction: column; transition: width 0.3s ease; }
         
         .sortable-ghost { opacity: 0.4; }
@@ -100,7 +98,6 @@
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
         
-        // Exact pixel snapping array for the grids (1X, 2X, 3X, 4X)
         const cardSizes = ['320px', '664px', '1008px', '1352px'];
         
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
@@ -149,14 +146,6 @@
             let red = Math.round(100 + r * 149);
             let green = Math.round(116 - r * 1);
             let blue = Math.round(139 - r * 117);
-            return `rgb(${red}, ${green}, ${blue})`;
-        }
-
-        function getAnalogOutColor(val) {
-            let r = Math.min(1, Math.max(0, val / 1023));
-            let red = Math.round(100 - r * 41);
-            let green = Math.round(116 + r * 14);
-            let blue = Math.round(139 + r * 107);
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
@@ -257,6 +246,44 @@
             appendTerminal("Dashboard cleared manually."); 
         }
 
+        function toggleLED(id, i) {
+            let current = advancedData[id] || "0000000000000000000000000";
+            let arr = current.split('');
+            arr[i] = arr[i] === '1' ? '0' : '1';
+            let newVal = arr.join('');
+            advancedData[id] = newVal;
+            updateLEDUI(id, newVal);
+            sendBluetoothCommand(`${id}:${newVal}`);
+        }
+
+        function clearLED(id) {
+            let newVal = "0000000000000000000000000";
+            advancedData[id] = newVal;
+            updateLEDUI(id, newVal);
+            sendBluetoothCommand(`${id}:${newVal}`);
+        }
+
+        function fillLED(id) {
+            let newVal = "1111111111111111111111111";
+            advancedData[id] = newVal;
+            updateLEDUI(id, newVal);
+            sendBluetoothCommand(`${id}:${newVal}`);
+        }
+
+        function updateLEDUI(id, valStr) {
+            advancedData[id] = valStr;
+            for(let i=0; i<25; i++) {
+                let led = document.getElementById(`led-${id}-${i}`);
+                if(led) {
+                    if(valStr.charAt(i) === '1') {
+                        led.className = "w-7 h-7 rounded-sm cursor-pointer transition-colors bg-red-500 border border-red-400 shadow-[0_0_8px_rgba(239,68,68,0.8)]";
+                    } else {
+                        led.className = "w-7 h-7 rounded-sm bg-slate-800 cursor-pointer border border-slate-600 transition-colors";
+                    }
+                }
+            }
+        }
+
         function updateDigitalUI(id, val) {
             let v = Number(val); advancedData[id] = v; let valIn = document.getElementById(`val-${id}`);
             if(valIn) { 
@@ -292,20 +319,23 @@
             }
 
             activeCardTypes[id] = { type: type, mode: mode || "" }; 
-            advancedData[id] = startVals && startVals[0] !== undefined ? (type === 'text' ? startVals[0] : Number(startVals[0])) : (type === 'text' ? "" : 0);
+            
+            if (type === 'text') advancedData[id] = startVals && startVals[0] !== undefined ? startVals[0] : "";
+            else if (type === 'led') advancedData[id] = startVals && startVals[0] !== undefined ? startVals[0] : "0000000000000000000000000";
+            else advancedData[id] = startVals && startVals[0] !== undefined ? Number(startVals[0]) : 0;
             
             const card = document.createElement('div'); 
             
-            let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : 'border-blue-500/60';
+            let borderTheme = type === 'analog' ? 'border-purple-500/60' : type === 'digital' ? 'border-emerald-500/60' : type === 'motor' ? 'border-orange-500/60' : type === 'text' ? 'border-pink-500/60' : type === 'led' ? 'border-yellow-500/60' : 'border-blue-500/60';
             
             card.className = `maker-card bg-slate-800 rounded-xl border-2 ${borderTheme} shadow-lg relative z-10`; 
             card.id = `card-${id}`;
             card.setAttribute('data-size', '0');
 
-            let colorClass = type === 'analog' ? 'text-purple-400' : type === 'digital' ? 'text-emerald-400' : type === 'motor' ? 'text-orange-400' : type === 'text' ? 'text-pink-400' : 'text-blue-400';
-            let iconStr = type === 'analog' ? '📊' : type === 'digital' ? '🚥' : type === 'motor' ? '⚙️' : type === 'text' ? '📝' : '🦾';
+            let colorClass = type === 'analog' ? 'text-purple-400' : type === 'digital' ? 'text-emerald-400' : type === 'motor' ? 'text-orange-400' : type === 'text' ? 'text-pink-400' : type === 'led' ? 'text-yellow-400' : 'text-blue-400';
+            let iconStr = type === 'analog' ? '📊' : type === 'digital' ? '🚥' : type === 'motor' ? '⚙️' : type === 'text' ? '📝' : type === 'led' ? '🔲' : '🦾';
 
-            let isOutput = (type === 'analog' && mode === 'OUT') || (type === 'digital' && (mode === 'OUT' || mode === 'PUSH')) || type === 'motor' || type === 'servo';
+            let isOutput = (type === 'analog' && mode === 'OUT') || (type === 'digital' && (mode === 'OUT' || mode === 'PUSH')) || (type === 'text' && mode === 'OUT') || type === 'motor' || type === 'servo' || type === 'led';
             
             let headerBtnsHTML = '';
             
@@ -377,9 +407,25 @@
                                 class="ui-btn-editable w-full py-3 px-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-purple-700 transition-all border border-purple-500 text-center cursor-pointer focus:outline-none truncate select-none">
                          </div>`;
             } 
-            else if (type === 'text') {
+            else if (type === 'text' && mode === 'IN') {
                 let displayTxt = startVals && startVals[0] !== undefined ? startVals[0] : "";
                 html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
+            }
+            else if (type === 'text' && mode === 'OUT') {
+                html += `<div class="w-full flex-1 flex flex-col justify-center items-center gap-4 mt-8">
+                            <input type="text" id="input-${id}" placeholder="Type message..." class="w-full bg-slate-900 border border-pink-500/50 rounded-lg px-4 py-3 text-pink-400 font-bold focus:outline-none focus:border-pink-500 shadow-inner">
+                            <button onclick="if(!isEditMode) { let val = document.getElementById('input-${id}').value; sendBluetoothCommand('${id}:'+val); document.getElementById('val-${id}').innerText = 'Sent: ' + val; advancedData['${id}'] = val; document.getElementById('input-${id}').value = ''; }" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg active:bg-pink-700 border border-pink-500">Send to micro:bit</button>
+                            <div id="val-${id}" class="text-xs text-slate-500 truncate w-full text-center mt-auto font-mono">Ready to send</div>
+                         </div>`;
+            }
+            else if (type === 'led') {
+                html += `<div class="grid grid-cols-5 gap-2 my-auto p-4 bg-slate-900 rounded-xl border border-slate-700 shadow-inner">
+                            ${Array.from({length: 25}).map((_, i) => `<div id="led-${id}-${i}" onclick="if(!isEditMode) toggleLED('${id}', ${i})" class="w-7 h-7 rounded-sm bg-slate-800 cursor-pointer border border-slate-600 transition-colors"></div>`).join('')}
+                         </div>
+                         <div class="flex justify-between w-full mt-auto gap-3">
+                             <button onclick="if(!isEditMode) clearLED('${id}')" class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 rounded-lg text-xs transition-colors border border-slate-600 shadow">CLEAR</button>
+                             <button onclick="if(!isEditMode) fillLED('${id}')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-yellow-950 font-bold py-2 rounded-lg text-xs transition-colors border border-yellow-500 shadow">FILL ALL</button>
+                         </div>`;
             }
             else if (type === 'motor') {
                 let mStart = startVals && startVals[0] !== undefined ? Number(startVals[0]) : 0;
@@ -431,6 +477,7 @@
             }
             if (type === 'analog' && mode === 'OUT') updateAnalogOutUI(id, startVals ? startVals[0] : 0);
             if (type === 'digital') updateDigitalUI(id, startVals ? startVals[0] : 0);
+            if (type === 'led') updateLEDUI(id, advancedData[id]);
 
             applySavedLayout(); applyCustomLabels(); saveLayoutOrder(); 
         }
@@ -521,9 +568,10 @@
                     let params = line.substring(5).split(","); let id = params[0];
                     if(id.startsWith("M")) createPlayingCard(id, 'motor', null, [params[2], params[3], params[4]]);
                     else if(id.startsWith("S")) createPlayingCard(id, 'servo', null, [params[2], params[3], params[4]]);
-                    else if(id.startsWith("T")) createPlayingCard(id, 'text', null, [params[2]]);
                     else if(id.startsWith("A")) createPlayingCard(id, 'analog', params[1], [params[2]]);
                     else if(id.startsWith("D")) createPlayingCard(id, 'digital', params[1], [params[2]]);
+                    else if(id.startsWith("T")) createPlayingCard(id, 'text', params[1], [params[2]]);
+                    else if(id.startsWith("L")) createPlayingCard(id, 'led', null, [params[2]]);
                 } else if (line !== "") { parseTelemetry(line); }
             }
             rxBuffer = lines[0];
@@ -534,7 +582,14 @@
             let id = str.substring(0, splitIdx); let valStr = str.substring(splitIdx + 1);
             let cardData = activeCardTypes[id]; if (!cardData) return; advancedData[id] = valStr;
 
-            if (cardData.type === 'text') { let el = document.getElementById(`val-${id}`); if(el) el.innerText = valStr; } 
+            if (cardData.type === 'text') { 
+                if (cardData.mode === 'IN') {
+                    let el = document.getElementById(`val-${id}`); if(el) el.innerText = valStr; 
+                }
+            } 
+            else if (cardData.type === 'led') {
+                updateLEDUI(id, valStr);
+            }
             else {
                 let valNum = parseFloat(valStr) || 0;
                 if (cardData.type === 'analog' && cardData.mode === 'IN') { 
@@ -602,11 +657,11 @@
                         id: String(id),
                         type: String(info.type),
                         mode: info.mode ? String(info.mode) : "",
-                        val: info.type === 'text' ? (advancedData[id] !== undefined ? String(advancedData[id]) : "") : (advancedData[id] != null && !Number.isNaN(Number(advancedData[id])) ? Number(advancedData[id]) : 0),
+                        val: (info.type === 'text' || info.type === 'led') ? (advancedData[id] !== undefined ? String(advancedData[id]) : "") : (advancedData[id] != null && !Number.isNaN(Number(advancedData[id])) ? Number(advancedData[id]) : 0),
                         title: document.getElementById(`title-${id}`)?.value || "Label"
                     };
                     
-                    let isOut = (info.type === 'analog' && info.mode === 'OUT') || (info.type === 'digital' && (info.mode === 'OUT' || info.mode === 'PUSH')) || info.type === 'motor' || info.type === 'servo';
+                    let isOut = (info.type === 'analog' && info.mode === 'OUT') || (info.type === 'digital' && (info.mode === 'OUT' || info.mode === 'PUSH')) || (info.type === 'text' && info.mode === 'OUT') || info.type === 'motor' || info.type === 'servo' || info.type === 'led';
                     if (isOut) { cardData.publicControl = cardPermissions[id] !== false; }
 
                     if (info.type === 'analog' && info.mode === 'IN') {
