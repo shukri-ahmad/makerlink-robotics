@@ -323,7 +323,8 @@
                                      <button id="btn-stop-${card.id}" onclick="sendMotorRemoteCommand('${card.id}', 'stop')" class="w-full bg-red-600 hover:bg-red-500 text-white text-sm font-bold py-2 px-1 rounded-lg shadow-lg truncate">${card.btnStop || "⏹️ STOP"}</button>
                                  </div>`;
                     } else if (card.type === 'servo') {
-                        html += `<div id="val-${card.id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${card.val !== undefined ? card.val : 90}°</div><input type="range" id="slider-${card.id}" min="0" max="180" value="${card.val !== undefined ? card.val : 90}" oninput="document.getElementById('val-${card.id}').innerText=this.value+'°'; sendRemoteCommand('${card.id}:'+this.value);" class="w-full mb-4 mt-auto">
+                        // Slider removed to prevent massive cloud spam / stutter!
+                        html += `<div id="val-${card.id}" class="text-5xl font-mono text-blue-400 font-bold mb-8 mt-auto">${card.val !== undefined ? card.val : 90}°</div>
                                  <div class="flex gap-3 w-full">
                                      <div class="flex-1 flex flex-col gap-1">
                                          <div class="flex gap-1 w-full text-[9px] text-slate-500 text-center font-bold">
@@ -349,7 +350,6 @@
 
                 let titleEl = document.getElementById(`title-${card.id}`); if(titleEl) titleEl.innerText = card.title || "Label";
                 
-                // Sync the TIME dropdown value correctly
                 if (card.type === 'analog' && card.mode === 'IN') {
                     let tEl = document.getElementById(`time-${card.id}`);
                     if (tEl && card.time !== undefined) { tEl.value = card.time; }
@@ -376,7 +376,7 @@
                     if (card.type === 'analog' && card.mode === 'OUT') elsToToggle = [`slider-${card.id}`];
                     else if (card.type === 'digital' && card.mode === 'OUT') elsToToggle = [`btn-on-${card.id}`, `btn-off-${card.id}`];
                     else if (card.type === 'motor') elsToToggle = [`btn-ccw-${card.id}`, `btn-cw-${card.id}`, `btn-stop-${card.id}`];
-                    else if (card.type === 'servo') elsToToggle = [`slider-${card.id}`, `btn-pos1-${card.id}`, `btn-pos2-${card.id}`];
+                    else if (card.type === 'servo') elsToToggle = [`btn-pos1-${card.id}`, `btn-pos2-${card.id}`]; // Removed slider reference
                     
                     elsToToggle.forEach(eid => {
                         let el = document.getElementById(eid);
@@ -416,7 +416,10 @@
                             el.innerText = displayStr; 
                         } 
                     }
-                    else if (card.type === 'servo') { let sl = document.getElementById(`slider-${card.id}`); if(sl) sl.value = valNum; let vl = document.getElementById(`val-${card.id}`); if(vl) vl.innerText = valNum + '°'; }
+                    else if (card.type === 'servo') { 
+                        let vl = document.getElementById(`val-${card.id}`); 
+                        if(vl) vl.innerText = valNum + '°'; 
+                    }
                 }
             });
         }
