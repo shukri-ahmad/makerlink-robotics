@@ -78,7 +78,6 @@
         <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start"></div>
     </div>
 
-    <!-- Floating Powered By Badge -->
     <div class="fixed bottom-4 right-4 z-0 opacity-40 hover:opacity-100 transition-opacity flex items-center gap-2 pointer-events-none">
         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Powered by</span>
         <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-8 object-contain rounded mix-blend-screen pointer-events-auto">
@@ -95,48 +94,6 @@
         let cardVisibility = JSON.parse(localStorage.getItem('makerlink_vis') || '{}');
         
         const advancedData = {}; const sensorCharts = {}; let activeCardTypes = {}; 
-        
-        // --- WEB WORKER TIMING ENGINE (UI ANIMATION ONLY) ---
-        const workerBlob = new Blob([`
-            let intervals = {};
-            self.onmessage = function(e) {
-                let d = e.data;
-                if (d.action === 'start') {
-                    if(intervals[d.id]) clearInterval(intervals[d.id]);
-                    intervals[d.id] = setInterval(() => { self.postMessage({id: d.id}); }, d.spd);
-                } else if (d.action === 'stop') {
-                    if(intervals[d.id]) { clearInterval(intervals[d.id]); delete intervals[d.id]; }
-                }
-            };
-        `], { type: 'application/javascript' });
-        const timerWorker = new Worker(URL.createObjectURL(workerBlob));
-        let servoTargets = {};
-        
-        timerWorker.onmessage = function(e) {
-            let id = e.data.id;
-            let targetVal = servoTargets[id];
-            let currentVal = Number(advancedData[id]) || 0;
-            
-            if (currentVal === targetVal) {
-                timerWorker.postMessage({ action: 'stop', id: id });
-                return;
-            }
-            
-            let step = currentVal < targetVal ? 1 : -1;
-            currentVal += step;
-            
-            const slider = document.getElementById('slider-' + id);
-            if (slider) slider.value = currentVal;
-            updateVal(id, currentVal); // Updates advancedData so the UI shows the right number
-            
-            // FIXED: sendBluetoothCommand REMOVED from here entirely.
-            // Now the UI just animates visually, and the micro:bit hardware thread handles the physical delay seamlessly!
-            
-            if (currentVal === targetVal) {
-                timerWorker.postMessage({ action: 'stop', id: id });
-            }
-        };
-        // ----------------------------------------------------
         
         let bluetoothDevice, bluetoothServer, uartService, rxCharacteristic, txCharacteristic;
         const UART_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'; const UART_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; const UART_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -358,20 +315,16 @@
                          </div>`;
             } 
             else if (type === 'servo') {
-                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0] || 90}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0] || 90}" oninput="timerWorker.postMessage({action:'stop', id:'${id}'}); updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
+                html += `<div id="val-${id}" class="text-5xl font-mono text-blue-400 font-bold mb-4">${startVals[0] || 90}°</div><input type="range" id="slider-${id}" min="0" max="180" value="${startVals[0] || 90}" oninput="updateVal('${id}', this.value); sendBluetoothCommand('${id}:'+this.value);" class="w-full mb-4 mt-auto">
                          <div class="flex gap-3 w-full">
                              <div class="flex-1 flex flex-col gap-1">
-                                 <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos1-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
-                                 </div>
+                                 <label class="text-[9px] text-slate-500 text-center font-bold">ANGLE</label>
+                                 <input type="number" id="pos1-val-${id}" value="${startVals[1] || 0}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner mb-1">
                                  <input type="text" id="btn-pos1-${id}" value="Pos 1" readonly onclick="if(!isEditMode) setServoPos('${id}', 1)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                              <div class="flex-1 flex flex-col gap-1">
-                                 <div class="flex gap-1 w-full">
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">ANG</label><input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner"></div>
-                                     <div class="flex-1 flex flex-col"><label class="text-[9px] text-slate-500 text-center font-bold">DELAY(ms)</label><input type="number" id="pos2-spd-${id}" value="0" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner" title="Delay (ms) per degree. 0 = Instant"></div>
-                                 </div>
+                                 <label class="text-[9px] text-slate-500 text-center font-bold">ANGLE</label>
+                                 <input type="number" id="pos2-val-${id}" value="${startVals[2] || 180}" readonly class="ui-editable-num w-full bg-slate-900 border border-slate-600 rounded px-1 py-1 text-center text-xs font-mono text-blue-400 shadow-inner mb-1">
                                  <input type="text" id="btn-pos2-${id}" value="Pos 2" readonly onclick="if(!isEditMode) setServoPos('${id}', 2)" class="ui-btn-editable w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-1.5 px-1 rounded-lg shadow-lg border border-blue-700/50 cursor-pointer text-center focus:outline-none truncate">
                              </div>
                          </div>`;
@@ -399,27 +352,12 @@
         
         function setServoPos(id, posNum) { 
             let targetVal = parseInt(document.getElementById(`pos${posNum}-val-${id}`).value) || 0; 
-            let spd = parseInt(document.getElementById(`pos${posNum}-spd-${id}`).value) || 0; 
             if (targetVal > 180) targetVal = 180; if (targetVal < 0) targetVal = 0; 
             
-            timerWorker.postMessage({action:'stop', id: id});
-            
-            if (spd <= 0) {
-                const slider = document.getElementById(`slider-${id}`); 
-                if (slider) slider.value = targetVal; 
-                updateVal(id, targetVal); 
-                sendBluetoothCommand(`${id}:${targetVal}`); 
-            } else {
-                let currentVal = Number(advancedData[id]) || 0;
-                if (currentVal === targetVal) return;
-                
-                // NEW: Send the smart combined command to the hardware ONE time!
-                sendBluetoothCommand(`${id}:${targetVal}:${spd}`);
-                
-                servoTargets[id] = targetVal;
-                // Run the UI worker just to animate the slider smoothly on screen
-                timerWorker.postMessage({ action: 'start', id: id, spd: spd });
-            }
+            const slider = document.getElementById(`slider-${id}`); 
+            if (slider) slider.value = targetVal; 
+            updateVal(id, targetVal); 
+            sendBluetoothCommand(`${id}:${targetVal}`); 
         }
         
         function setMotor(id, action) { 
@@ -545,8 +483,6 @@
                         if (cmdData.cmd.includes(':POS1')) { setServoPos(cmdData.cmd.split(':')[0], 1); }
                         else if (cmdData.cmd.includes(':POS2')) { setServoPos(cmdData.cmd.split(':')[0], 2); }
                         else {
-                            let parsedId = cmdData.cmd.split(':')[0];
-                            timerWorker.postMessage({action:'stop', id: parsedId});
                             sendBluetoothCommand(cmdData.cmd); 
                             parseTelemetry(cmdData.cmd); 
                         }
@@ -592,8 +528,6 @@
                     } else if (info.type === 'servo') {
                         cardData.pos1Val = Number(document.getElementById(`pos1-val-${id}`)?.value) || 0; 
                         cardData.pos2Val = Number(document.getElementById(`pos2-val-${id}`)?.value) || 180;
-                        cardData.pos1Spd = Number(document.getElementById(`pos1-spd-${id}`)?.value) || 0; 
-                        cardData.pos2Spd = Number(document.getElementById(`pos2-spd-${id}`)?.value) || 0;
                         cardData.btnPos1 = document.getElementById(`btn-pos1-${id}`)?.value || "Pos 1"; 
                         cardData.btnPos2 = document.getElementById(`btn-pos2-${id}`)?.value || "Pos 2";
                     } else if (info.type === 'motor') {
