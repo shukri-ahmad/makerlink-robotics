@@ -319,7 +319,6 @@
                          </div>`;
             }
             else if (type === 'digital' && mode === 'PUSH') {
-                // NEW PUSH BUTTON MODE! 
                 html += `<div class="flex-1 flex items-center justify-center w-full">
                              <div id="val-out-${id}" class="w-20 h-20 rounded-2xl transition-all duration-200 border-[3px]"></div>
                          </div>
@@ -558,7 +557,10 @@
                         id: String(id),
                         type: String(info.type),
                         mode: info.mode ? String(info.mode) : "",
-                        val: advancedData[id] != null && !Number.isNaN(Number(advancedData[id])) ? Number(advancedData[id]) : 0,
+                        
+                        // FIX: If it's a Text card, sync the raw string! Otherwise, parse as number safely.
+                        val: info.type === 'text' ? (advancedData[id] !== undefined ? String(advancedData[id]) : "") : (advancedData[id] != null && !Number.isNaN(Number(advancedData[id])) ? Number(advancedData[id]) : 0),
+                        
                         title: document.getElementById(`title-${id}`)?.value || "Label"
                     };
                     
