@@ -60,7 +60,6 @@
             <button id="btn-edit" onclick="toggleEditMode()" class="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">✏️ Edit Layout</button>
             <button id="btn-cloud" onclick="toggleCloud()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded-lg transition-colors min-w-[140px] shadow-lg">☁️ Go Public</button>
             
-            <!-- NEW E-STOP Control Group -->
             <div class="flex bg-slate-900 border border-red-500/30 p-1 rounded-lg items-center shadow-lg">
                 <button id="btn-estop" onclick="triggerEStop()" class="bg-red-600 hover:bg-red-500 text-white font-black py-1.5 px-3 rounded-md transition-colors shadow-[0_0_10px_rgba(220,38,38,0.5)] border border-red-400 text-sm whitespace-nowrap">🚨 E-STOP</button>
                 <button id="vis-btn-estop" onclick="toggleVisibility('estop')" class="ml-1 text-[10px] border px-2 py-1 rounded cursor-pointer hover:opacity-80 transition-colors bg-blue-900/50 text-blue-400 border-blue-700" title="Toggle Public Visibility">👁️</button>
@@ -115,7 +114,6 @@
         
         const sortable = new Sortable(gridEl, { animation: 150, ghostClass: 'sortable-ghost', disabled: true, filter: ".size-btns, input, select, button", preventOnFilter: false, onEnd: function (evt) { saveLayoutOrder(); } });
 
-        // Restore static visibility buttons on page load
         if (cardVisibility['terminal'] === false) {
             let tBtn = document.getElementById('vis-btn-terminal');
             if(tBtn) {
@@ -164,6 +162,14 @@
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
+        function getAnalogOutColor(val) {
+            let r = Math.min(1, Math.max(0, val / 1023));
+            let red = Math.round(100 - r * 41);
+            let green = Math.round(116 + r * 14);
+            let blue = Math.round(139 + r * 107);
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
         function saveLayoutOrder() { 
             const order = Array.from(gridEl.children).map(c => { 
                 return { id: c.id.replace('card-', ''), size: c.getAttribute('data-size') || '0' }; 
@@ -193,17 +199,45 @@
         function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag])); }
         function appendTerminal(msg) { const term = document.getElementById('terminal-output'); if (term.innerHTML.includes("Waiting for micro:bit SYNC...")) term.innerHTML = ''; const time = new Date().toLocaleTimeString('en-US', { hour12: false }); const line = document.createElement('div'); let colorClass = msg.toLowerCase().includes('error') || msg.toLowerCase().includes('fail') ? 'text-red-400' : 'text-emerald-400'; line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass}">${escapeHTML(msg)}</span>`; term.appendChild(line); term.scrollTop = term.scrollHeight; if (isCloudActive && cloudRoomId) { db.ref('rooms/' + cloudRoomId + '/logs').push({ time: time, msg: msg, color: colorClass }); } }
 
+        // --- NEW: Global E-STOP Logic ---
         function triggerEStop() {
             sendBluetoothCommand("STOPALL");
-            ['M1','M2','M3','M4'].forEach(id => {
-                if (activeCardTypes[id] && activeCardTypes[id].type === 'motor') {
+            
+            Object.keys(activeCardTypes).forEach(id => {
+                let info = activeCardTypes[id];
+                
+                if (info.type === 'motor') {
                     advancedData[id] = 0;
                     let el = document.getElementById(`val-${id}`);
                     if (el) el.innerText = 'STOP (0)';
+                } 
+                else if (info.type === 'analog' && info.mode === 'OUT') {
+                    updateAnalogOutUI(id, 0);
+                    sendBluetoothCommand(`${id}:0`);
+                } 
+                else if (info.type === 'digital' && (info.mode === 'OUT' || info.mode === 'PUSH')) {
+                    updateDigitalUI(id, 0);
+                    sendBluetoothCommand(`${id}:0`);
+                } 
+                else if (info.type === 'led') {
+                    advancedData[id] = 0;
+                    updateLEDUI(id, 0);
+                    sendBluetoothCommand(`${id}:0`);
+                } 
+                else if (info.type === 'text' && info.mode === 'OUT') {
+                    let inEl = document.getElementById(`input-${id}`);
+                    if (inEl) inEl.value = "";
+                    let valEl = document.getElementById(`val-${id}`);
+                    if (valEl) valEl.innerText = "Ready to send";
+                    advancedData[id] = "";
+                    sendBluetoothCommand(`${id}: `); // Send blank space to clear
                 }
+                // Note: Servos are intentionally skipped here because the MakeCode STOPALL 
+                // command already locks them safely in place without jerking them to 0 degrees!
             });
-            appendTerminal("🚨 EMERGENCY STOP TRIGGERED.");
+            appendTerminal("🚨 EMERGENCY STOP TRIGGERED. ALL OUTPUTS DISABLED.");
         }
+        // --------------------------------
 
         function togglePermission(id) {
             cardPermissions[id] = !cardPermissions[id];
@@ -430,7 +464,7 @@
                              <input type="text" id="btn-push-${id}" value="HOLD" readonly 
                                 onmousedown="if(!isEditMode) { sendBluetoothCommand('${id}:1'); updateDigitalUI('${id}', 1); }" 
                                 onmouseup="if(!isEditMode) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }" 
-                                onmouseleave="if(!isEditMode && advancedData['${id}'] == 1) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }"
+                                onmouseleave="if(!isEditMode && advancedData['id'] == 1) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }"
                                 ontouchstart="if(!isEditMode) { sendBluetoothCommand('${id}:1'); updateDigitalUI('${id}', 1); }"
                                 ontouchend="if(!isEditMode) { sendBluetoothCommand('${id}:0'); updateDigitalUI('${id}', 0); }"
                                 class="ui-btn-editable w-full py-3 px-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white font-bold text-lg shadow-lg active:bg-purple-700 transition-all border border-purple-500 text-center cursor-pointer focus:outline-none truncate select-none">
@@ -664,15 +698,7 @@
                     const cmdData = snap.val(); 
                     if(cmdData && cmdData.cmd) { 
                         if (cmdData.cmd === 'STOPALL') {
-                            sendBluetoothCommand(cmdData.cmd);
-                            ['M1','M2','M3','M4'].forEach(id => {
-                                if (activeCardTypes[id] && activeCardTypes[id].type === 'motor') {
-                                    advancedData[id] = 0;
-                                    let el = document.getElementById(`val-${id}`);
-                                    if (el) el.innerText = 'STOP (0)';
-                                }
-                            });
-                            appendTerminal("🚨 CLOUD E-STOP TRIGGERED.");
+                            triggerEStop(); // Reroutes cloud stop through Host's local STOPALL function!
                         }
                         else if (cmdData.cmd.includes(':POS1')) { setServoPos(cmdData.cmd.split(':')[0], 1); }
                         else if (cmdData.cmd.includes(':POS2')) { setServoPos(cmdData.cmd.split(':')[0], 2); }
@@ -692,12 +718,10 @@
         function syncCloud() {
             const payload = [];
             
-            // Add estopVisible state to the sync packet
             db.ref('rooms/' + cloudRoomId + '/config').set({ 
                 terminalVisible: cardVisibility['terminal'] !== false,
                 estopVisible: cardVisibility['estop'] !== false
             });
-            
             db.ref('rooms/' + cloudRoomId + '/heartbeat').set(Date.now());
 
             Array.from(gridEl.children).forEach(cardDom => {
