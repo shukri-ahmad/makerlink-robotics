@@ -125,12 +125,29 @@
         function appendTerminal(msg, time, colorClass) { const term = document.getElementById('terminal-output'); if (term.innerHTML.includes("Awaiting logs...")) term.innerHTML = ''; const line = document.createElement('div'); line.innerHTML = `<span class="text-slate-600 mr-2">[${time}]</span> <span class="${colorClass || 'text-emerald-400'}">${escapeHTML(msg)}</span>`; term.appendChild(line); term.scrollTop = term.scrollHeight; }
 
         function triggerEStop() {
+            // Sends the command up to the host; the host will safely process zeroing all hardware and sync back the updated UI!
             sendRemoteCommand("STOPALL");
-            ['M1','M2','M3','M4'].forEach(id => {
-                if (publicCardData[id] && publicCardData[id].type === 'motor') {
+            
+            // Instantly blank out local UI for responsiveness
+            Object.keys(publicCardData).forEach(id => {
+                let info = publicCardData[id];
+                if (info.type === 'motor') {
                     advancedData[id] = 0;
                     let el = document.getElementById(`val-${id}`);
                     if (el) el.innerText = 'STOP (0)';
+                } else if (info.type === 'analog' && info.mode === 'OUT') {
+                    updateAnalogOutUI(id, 0);
+                } else if (info.type === 'digital' && (info.mode === 'OUT' || info.mode === 'PUSH')) {
+                    updateDigitalUI(id, 0);
+                } else if (info.type === 'led') {
+                    advancedData[id] = 0;
+                    updateLEDUI(id, 0);
+                } else if (info.type === 'text' && info.mode === 'OUT') {
+                    let inEl = document.getElementById(`input-${id}`);
+                    if (inEl) inEl.value = "";
+                    let valEl = document.getElementById(`val-${id}`);
+                    if (valEl) valEl.innerText = "Ready to send";
+                    advancedData[id] = "";
                 }
             });
         }
@@ -372,10 +389,11 @@
                         let displayTxt = card.val !== undefined ? card.val : "";
                         html += `<div class="w-full h-full overflow-y-auto custom-scrollbar flex p-2"><div id="val-${card.id}" class="m-auto w-full text-center text-3xl font-bold text-pink-400 break-words whitespace-pre-wrap">${displayTxt}</div></div>`;
                     } else if (card.type === 'text' && card.mode === 'OUT') {
+                        let displayTxt = card.val !== undefined ? card.val : "";
                         html += `<div class="w-full flex-1 flex flex-col justify-center items-center gap-4 mt-8">
                                     <input type="text" id="input-${card.id}" placeholder="Type message..." class="w-full bg-slate-900 border border-pink-500/50 rounded-lg px-4 py-3 text-pink-400 font-bold focus:outline-none focus:border-pink-500 shadow-inner">
                                     <button onclick="let v = document.getElementById('input-${card.id}').value; sendRemoteCommand('${card.id}:'+v); document.getElementById('val-${card.id}').innerText = 'Sent: ' + v; advancedData['${card.id}'] = v; document.getElementById('input-${card.id}').value = '';" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-lg transition-colors shadow-lg active:bg-pink-700 border border-pink-500">Send to micro:bit</button>
-                                    <div id="val-${card.id}" class="text-xs text-slate-500 truncate w-full text-center mt-auto font-mono">Ready to send</div>
+                                    <div id="val-${card.id}" class="text-xs text-slate-500 truncate w-full text-center mt-auto font-mono">${displayTxt ? 'Ready: ' + displayTxt : 'Ready to send'}</div>
                                  </div>`;
                     } else if (card.type === 'led') {
                         html += `<div class="grid grid-cols-5 gap-2 my-auto p-4 bg-slate-900 rounded-xl border border-slate-700 shadow-inner">
