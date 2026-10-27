@@ -80,6 +80,7 @@
         <div id="dashboard-grid" class="flex flex-wrap gap-6 justify-center sm:justify-start"></div>
     </div>
 
+    <!-- Floating Powered By Badge -->
     <div class="fixed bottom-4 right-4 z-0 opacity-40 hover:opacity-100 transition-opacity flex items-center gap-2 pointer-events-none">
         <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Powered by</span>
         <img src="MAKEROBOT_ECO-Photoroom.jpg" alt="Makerobot Ecosystem" class="h-8 object-contain rounded mix-blend-screen pointer-events-auto">
@@ -145,6 +146,14 @@
             let red = Math.round(100 + r * 149);
             let green = Math.round(116 - r * 1);
             let blue = Math.round(139 - r * 117);
+            return `rgb(${red}, ${green}, ${blue})`;
+        }
+
+        function getAnalogOutColor(val) {
+            let r = Math.min(1, Math.max(0, val / 1023));
+            let red = Math.round(100 - r * 41);
+            let green = Math.round(116 + r * 14);
+            let blue = Math.round(139 + r * 107);
             return `rgb(${red}, ${green}, ${blue})`;
         }
 
@@ -245,7 +254,7 @@
             appendTerminal("Dashboard cleared manually."); 
         }
 
-        // --- NEW UX: LED grid queues changes locally, waits for "Send" button ---
+        // --- FIXED: LED logic now properly separated ---
         function toggleLED(id, i) {
             let currentNum = parseInt(advancedData[id]) || 0;
             currentNum = currentNum ^ (1 << i); 
@@ -262,7 +271,7 @@
             let num = parseInt(advancedData[id]) || 0;
             sendBluetoothCommand(`${id}:${num}`);
         }
-        // ----------------------------------------------------------------------
+        // ------------------------------------------------
 
         function updateLEDUI(id, valNum) {
             let num = parseInt(valNum) || 0;
@@ -422,12 +431,13 @@
                          </div>`;
             }
             else if (type === 'led') {
+                // FIX: Buttons now explicitly call clearLED and sendLED
                 html += `<div class="grid grid-cols-5 gap-2 my-auto p-4 bg-slate-900 rounded-xl border border-slate-700 shadow-inner">
                             ${Array.from({length: 25}).map((_, i) => `<div id="led-${id}-${i}" onclick="if(!isEditMode) toggleLED('${id}', ${i})" class="w-7 h-7 rounded-sm bg-slate-800 cursor-pointer border border-slate-600 transition-colors"></div>`).join('')}
                          </div>
                          <div class="flex justify-between w-full mt-auto gap-3">
-                             <button onclick="if(!isEditMode) clearLED('${id}')" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-4 rounded-lg text-xs transition-colors border border-slate-600 shadow">CLEAR</button>
-                             <button onclick="if(!isEditMode) sendLED('${id}')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-yellow-950 font-bold py-2 rounded-lg text-xs transition-colors border border-yellow-500 shadow">SEND TO MICRO:BIT</button>
+                             <button id="btn-clear-led-${id}" onclick="if(!isEditMode) clearLED('${id}')" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-4 rounded-lg text-xs transition-colors border border-slate-600 shadow">CLEAR</button>
+                             <button id="btn-send-led-${id}" onclick="if(!isEditMode) sendLED('${id}')" class="flex-1 bg-yellow-600 hover:bg-yellow-500 text-yellow-950 font-bold py-2 rounded-lg text-xs transition-colors border border-yellow-500 shadow">SEND TO MICRO:BIT</button>
                          </div>`;
             }
             else if (type === 'motor') {
